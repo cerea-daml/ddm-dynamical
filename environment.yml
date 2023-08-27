@@ -1,0 +1,25 @@
+name: ddim_attractor
+channels:
+  - anaconda
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pip
+  - tqdm
+  - matplotlib
+  - numpy
+  - scipy
+  - ipykernel
+  - ipywidgets
+  - pip:
+      - rich
+      - pykeops
+      - torch
+      - torchvision
+      - torchaudio
+      - pytorch-lightning
+      - hydra-core
+      - hydra-joblib-launcher
+      - hydra-submitit-launcher
+      - hydra-optuna-sweeper
+      - wandb
