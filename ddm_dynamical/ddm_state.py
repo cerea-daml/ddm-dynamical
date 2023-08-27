@@ -146,7 +146,7 @@ class StateDDMModule(LightningModule):
             alpha_sqrt=alpha_sqrt,
             sigma=sigma
         )
-        self.log(f'{prefix}/loss', head_loss, on_step=True, on_epoch=True,
+        self.log(f'{prefix}/loss', head_loss, on_step=False, on_epoch=True,
                  prog_bar=True)
         denoised_batch = self.head.get_state(
             latent_state=noised_data,
@@ -155,7 +155,7 @@ class StateDDMModule(LightningModule):
             sigma=sigma
         )
         data_loss = F.l1_loss(denoised_batch, batch)
-        self.log(f'{prefix}/data_loss', data_loss, on_step=True, on_epoch=True,
+        self.log(f'{prefix}/data_loss', data_loss, on_step=False, on_epoch=True,
                  prog_bar=True)
         return head_loss
     
