@@ -43,7 +43,9 @@ class DDPMSampler(BaseSampler):
         noise_factor = ((1-alpha_dash_t)*(1-alpha_s)/(1-alpha_t)).sqrt()
 
         # Estimate tensors
-        time_tensor = torch.ones_like(in_tensor) * step
+        time_tensor = torch.ones(
+            in_tensor.size(0), device=in_tensor.device, dtype=in_tensor.dtype
+        ) * step
         prediction = self.denoising_model(in_tensor, time_tensor)
         state = (in_tensor-var_t.sqrt()*prediction) / (1-var_t).sqrt()
 
