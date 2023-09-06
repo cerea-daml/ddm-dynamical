@@ -33,6 +33,6 @@ class DDPMScheduler(NoiseScheduler):
         self.scale = 10.
 
     def get_gamma(self, timestep: torch.Tensor) -> torch.Tensor:
-        return -torch.log(
+        return torch.log(
             torch.expm1(self.shift + self.scale * timestep.pow(2))
         )
