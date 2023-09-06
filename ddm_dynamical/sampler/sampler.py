@@ -25,16 +25,13 @@ class BaseSampler(torch.nn.Module):
     def __init__(
             self,
             scheduler: "dyn_ddim.scheduler.noise_scheduler.NoiseScheduler",
-            head: "dyn_ddim.head_param.head.HeadParam",
             timesteps: int = 250,
             denoising_model: torch.nn.Module = None,
     ):
         super().__init__()
         self.denoising_model = denoising_model
-        self.head = head
         self.timesteps = timesteps
-        self.noise_scheduler = scheduler
-        self.step_mul = self.noise_scheduler.timesteps / timesteps
+        self.scheduler = scheduler
 
     def generate_prior_sample(
             self,
@@ -61,16 +58,17 @@ class BaseSampler(torch.nn.Module):
     def reconstruct(
             self,
             in_tensor: torch.Tensor,
-            start_time: int = 100
+            start_time: float = 1.
     ) -> torch.Tensor:
         denoised_tensor = in_tensor
-        for idx_time in reversed(range(1, start_time+1)):
-            denoised_tensor = self(denoised_tensor, torch.tensor(idx_time))
+        time_steps = torch.linspace(0, start_time, self.timesteps+1)[1:]
+        for step in reversed(time_steps):
+            denoised_tensor = self(denoised_tensor, step)
         return denoised_tensor
 
     def forward(
             self,
             in_data: torch.Tensor,
-            idx_time: int = 1000
+            step: torch.Tensor
     ) -> torch.Tensor:
         pass
