@@ -11,7 +11,6 @@
 
 # System modules
 import logging
-import abc
 
 # External modules
 import torch
@@ -23,7 +22,6 @@ logger = logging.getLogger(__name__)
 
 
 class NoiseScheduler(torch.nn.Module):
-    @abc.abstractmethod
     def get_gamma(self, timestep: torch.Tensor) -> torch.Tensor:
         pass
 
