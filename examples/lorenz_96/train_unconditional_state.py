@@ -12,17 +12,14 @@
 import logging
 
 # External modules
-import torch.nn
 import pytorch_lightning as pl
 
-
+from data_modules import UnconditionalStateDataModule
+from ddm_dynamical.sampler import DDIMSampler
+from ddm_dynamical.scheduler import DDPMScheduler
+from ddm_dynamical.vdm_discrete import VDMDiscreteModule
 # Internal modules
 from networks import UNeXt
-from data_modules import UnconditionalStateDataModule
-from ddm_dynamical.ddm_state import StateDDMModule
-from ddm_dynamical.scheduler import CosineScheduler
-from ddm_dynamical.sampler import DDIMSampler
-from ddm_dynamical.head_param import VelocityHead
 
 main_logger = logging.getLogger(__name__)
 
@@ -36,16 +33,13 @@ def train_model():
     main_logger.info("Initialized data")
 
     denoising_network = UNeXt()
-    head = VelocityHead(torch.nn.MSELoss())
-    scheduler = CosineScheduler()
-    model = StateDDMModule(
+    scheduler = DDPMScheduler()
+    model = VDMDiscreteModule(
         denoising_network=denoising_network,
-        head=head,
         scheduler=scheduler,
         lr=3E-4,
         sampler=DDIMSampler(
             scheduler=scheduler,
-            head=head,
             denoising_model=denoising_network,
             timesteps=100
         )
