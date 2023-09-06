@@ -1,7 +1,6 @@
-from .cosine_scheduler import CosineScheduler
-from .linear_scheduler import LinearScheduler
+from .ddpm_scheduler import DDPMScheduler
 
 
 __all__ = [
-    "CosineScheduler",
+    "DDPMScheduler",
 ]
