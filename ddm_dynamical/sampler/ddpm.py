@@ -27,8 +27,9 @@ class DDPMSampler(BaseSampler):
             step: torch.Tensor
     ) -> torch.Tensor:
         # Estimate coefficients from scheduler
+        prev_step = step-1/self.timesteps
         gamma_t = self.scheduler.get_gamma(step)
-        gamma_s = self.scheduler.get_gamma(step-1/self.timesteps)
+        gamma_s = self.scheduler.get_gamma(prev_step)
         var_t = torch.sigmoid(gamma_t)
         alpha_t = (1-var_t)
         alpha_s = torch.sigmoid(-gamma_s)
@@ -45,8 +46,9 @@ class DDPMSampler(BaseSampler):
         time_tensor = torch.ones_like(in_tensor) * step
         prediction = self.denoising_model(in_tensor, time_tensor)
         state = (in_tensor-var_t.sqrt()*prediction) / (1-var_t).sqrt()
-        noise = torch.randn_like(in_tensor)
 
-        out_state = latent_factor * in_tensor + state_factor * state + \
+        if prev_step > 0:
+            noise = torch.randn_like(in_tensor)
+            state = latent_factor * in_tensor + state_factor * state + \
                     noise_factor * noise
-        return out_state
+        return state

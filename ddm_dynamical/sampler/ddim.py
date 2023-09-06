@@ -27,7 +27,6 @@ class DDIMSampler(BaseSampler):
     def __init__(
             self,
             scheduler: "dyn_ddim.scheduler.noise_scheduler.NoiseScheduler",
-            head: "dyn_ddim.head_param.head.HeadParam",
             timesteps: int = 250,
             denoising_model: torch.nn.Module = None,
             ddpm: bool = False,
@@ -35,7 +34,6 @@ class DDIMSampler(BaseSampler):
     ):
         super().__init__(
             scheduler=scheduler,
-            head=head,
             timesteps=timesteps,
             denoising_model=denoising_model
         )
@@ -57,42 +55,27 @@ class DDIMSampler(BaseSampler):
 
     def forward(
             self,
-            in_data: torch.Tensor,
-            idx_time: int = 1000
+            in_tensor: torch.Tensor,
+            step: torch.Tensor
     ) -> torch.Tensor:
-        curr_idx_time = torch.round(idx_time * self.step_mul).long()
-        prev_idx_time = torch.round((idx_time-1) * self.step_mul).long()
-        alpha_t = self.noise_scheduler.get_alpha(curr_idx_time)
-        alpha_s = self.noise_scheduler.get_alpha(prev_idx_time)
-        alpha_sqrt_t = alpha_t.sqrt()
-        alpha_sqrt_s = alpha_s.sqrt()
-        sigma_t = self.noise_scheduler.get_sigma(curr_idx_time)
-        sigma_s = self.noise_scheduler.get_sigma(prev_idx_time)
-
-        time_tensor = torch.full(
-            torch.Size(
-                [in_data.shape[0]] + [1, ] * (in_data.ndim - 1)
-            ), curr_idx_time, device=in_data.device,
-            dtype=in_data.dtype, layout=in_data.layout
+        # Estimate coefficients
+        prev_step = step-1/self.timesteps
+        gamma_t = self.scheduler.get_gamma(step)
+        gamma_s = self.scheduler.get_gamma()
+        var_t = torch.sigmoid(gamma_t)
+        var_s = torch.sigmoid(gamma_s)
+        alpha_sqrt_s = (1-var_s).sqrt()
+        noise_level = self._estimate_stoch_level(
+            alpha_t=1 - var_t, alpha_s=1 - var_s
         )
-        prediction = self.denoising_model(in_data, time_tensor)
 
-        state = self.head.get_state(
-            in_data, prediction=prediction,
-            alpha_sqrt=alpha_sqrt_t, sigma=sigma_t
-        )
-        if idx_time > 1:
-            noise = self.head.get_noise(
-                in_data, prediction=prediction,
-                alpha_sqrt=alpha_sqrt_t, sigma=sigma_t
-            )
-            if self.ddpm or self.eta > 0:
-                noise_level = self._estimate_stoch_level(
-                    alpha_t=alpha_t, alpha_s=alpha_s
-                )
-                state = alpha_sqrt_s * state \
-                        + noise_level[0] * noise \
-                        + noise_level[1] * torch.randn_like(noise)
-            else:
-                state = alpha_sqrt_s * state + sigma_s * noise
+        # Estimate predictions
+        time_tensor = torch.ones_like(in_tensor) * step
+        prediction = self.denoising_model(in_tensor, time_tensor)
+        state = (in_tensor-var_t.sqrt()*prediction) / (1-var_t).sqrt()
+
+        if prev_step > 0:
+            noise = torch.randn_like(in_tensor)
+            state = alpha_sqrt_s * state + noise_level[0] * prediction \
+                    + noise_level[1] * noise
         return state
