@@ -28,7 +28,6 @@ class DiscreteDDMModule(LightningModule):
     def __init__(
             self,
             denoising_network: torch.nn.Module,
-            head: "ddm_dynamical.head_param.head.HeadParam",
             scheduler: "ddm_dynamical.scheduler.noise_scheduler.NoiseScheduler",
             timesteps: int = 1000,
             lr: float = 1E-3,
@@ -36,7 +35,7 @@ class DiscreteDDMModule(LightningModule):
     ) -> None:
         """
         A module to train an unconditional Gaussian denoising diffusion model
-        for a given network, head parameterization, and noise scheduler. A
+        for a given network and noise scheduler. A
         sampler can be additionally set to use the denoising diffusion model for
         prediction.
 
@@ -44,9 +43,6 @@ class DiscreteDDMModule(LightningModule):
         ----------
         denoising_network : torch.nn.Module
             This denoising neural network will be trained by this module
-        head : ddm_dynamical.head_param.head.HeadParam
-            This head parameterization defines the output of the neural network
-            and the loss function used during training.
         scheduler : ddm_dynamical.scheduler.noise_scheduler.NoiseScheduler
             This noise scheduler defines the signal to noise ratio for the time
             steps during training.
@@ -60,34 +56,32 @@ class DiscreteDDMModule(LightningModule):
         super().__init__()
         self.timesteps = timesteps
         self.scheduler = scheduler
-        self.head = head
         self.denoising_network = denoising_network
         self.lr = lr
         self.sampler = sampler
         self.recon_logvar = torch.nn.Parameter(torch.zeros(5, 1, 1))
         self.save_hyperparameters(
-            ignore=["denoising_network", "head", "scheduler", "sampler"]
+            ignore=["denoising_network", "scheduler", "sampler"]
         )
 
-    def forward(self, in_tensor: torch.Tensor, idx_time: torch.Tensor):
+    def forward(self, in_tensor: torch.Tensor, time_tensor: torch.Tensor):
         """
-        Apply the denoising network without the head parameterization for one
-        single step.
+        Predict the noise given the noised input tensor and the time.
 
         Parameters
         ----------
         in_tensor : torch.Tensor
             The noised input for the neural network.
-        idx_time : torch.LongTensor
-            The time index feeded as additional input to the neural network
+        time_tensor : torch.Tensor
+            The continuous input time [0, 1].
 
         Returns
         -------
         output_tensor : torch.Tensor
-            The neural network output without the applied head parameterization.
+            The predicted noise.
             The output has the same shape as the in_tensor.
         """
-        return self.denoising_network(in_tensor, idx_time)
+        return self.denoising_network(in_tensor, time_tensor)
 
     def sample_time(
             self,
