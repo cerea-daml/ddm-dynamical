@@ -17,7 +17,6 @@ from typing import Any
 from pytorch_lightning import LightningModule
 
 import torch
-import torch.nn.functional as F
 
 # Internal modules
 
@@ -25,7 +24,7 @@ import torch.nn.functional as F
 logger = logging.getLogger(__name__)
 
 
-class StateDDMModule(LightningModule):
+class DiscreteDDMModule(LightningModule):
     def __init__(
             self,
             denoising_network: torch.nn.Module,
@@ -65,6 +64,7 @@ class StateDDMModule(LightningModule):
         self.denoising_network = denoising_network
         self.lr = lr
         self.sampler = sampler
+        self.recon_logvar = torch.nn.Parameter(torch.zeros(5, 1, 1))
         self.save_hyperparameters(
             ignore=["denoising_network", "head", "scheduler", "sampler"]
         )
@@ -94,7 +94,7 @@ class StateDDMModule(LightningModule):
             template_tensor: torch.Tensor
     ) -> torch.Tensor:
         """
-        Samples time indices as long tensor between [1, `self.timestep`].
+        Samples time indices as long tensor between [1, timesteps]/timesteps.
 
         Parameters
         ----------
@@ -103,7 +103,7 @@ class StateDDMModule(LightningModule):
 
         Returns
         -------
-        sampled_time : torch.LongTensor
+        sampled_time : torch.Tensor
             The time tensor sampled for each sample independently. The resulting
             shape is (batch size, *) with `n` dimensions filled by ones. The
             tensor lies on the same device as the input.
@@ -113,51 +113,91 @@ class StateDDMModule(LightningModule):
         )
         sampled_time = torch.randint(
             1, self.timesteps+1, time_shape,
+            dtype=template_tensor.dtype,
             device=template_tensor.device
-        ).long()
+        ) / self.timesteps
         return sampled_time
 
-    def diffuse(
+    def get_diff_loss(
             self,
-            in_data: torch.Tensor,
-            alpha_sqrt: Any,
-            sigma: Any,
-    ) -> [torch.Tensor, torch.Tensor]:
-        noise = torch.randn_like(in_data)
-        noised_data = alpha_sqrt * in_data + sigma * noise
-        return noised_data, noise
+            prediction: torch.Tensor,
+            noise: torch.Tensor,
+            weighting: torch.Tensor
+    ) -> torch.Tensor:
+        error_noise = (prediction - noise).pow(2).sum(dim=(1, 2, 3))
+        loss_diff = 0.5 * self.timesteps * weighting * error_noise
+        return loss_diff
+
+    def get_latent_loss(
+            self,
+            batch: torch.Tensor,
+    ) -> torch.Tensor:
+        gamma_1 = self.scheduler.get_gamma(
+            torch.ones(1,), dtype=batch.dtype, device=batch.device
+        )
+        var_1 = torch.sigmoid(gamma_1)
+        loss_latent = 0.5 * torch.sum(
+            (1-var_1) * torch.square(batch) + var_1 - torch.log(var_1) - 1.,
+            dim=(1, 2, 3)
+        )
+        return loss_latent
+
+    def get_recon_loss(
+            self,
+            batch: torch.Tensor,
+            noise: torch.Tensor,
+    ) -> torch.Tensor:
+        gamma_0 = self.scheduler.get_gamma(
+            torch.ones(1, dtype=batch.dtype, device=batch.device)
+        )
+        var_0 = torch.sigmoid(gamma_0)
+        x_hat = (1-var_0).sqrt() * batch + var_0.sqrt() * noise
+        data_part = ((x_hat-batch).pow(2)/self.recon_logvar.exp())
+        logvar_part = self.recon_logvar*torch.ones_like(batch)
+        const_part = (2 * torch.pi * torch.ones_like(batch)).log()
+        loss_recon = 0.5 * (data_part+logvar_part+const_part).sum(dim=(1, 2, 3))
+        return loss_recon
 
     def estimate_loss(
             self,
             batch: torch.Tensor,
             prefix: str = "train"
     ) -> torch.Tensor:
+        # Sampling
+        noise = torch.randn_like(batch)
         sampled_time = self.sample_time(batch)
-        alpha_sqrt = self.scheduler.get_alpha(sampled_time).sqrt()
-        sigma = self.scheduler.get_sigma(sampled_time)
-        noised_data, noise = self.diffuse(batch, alpha_sqrt, sigma)
+
+        # Evaluate scheduler
+        gamma_t = self.scheduler.get_gamma(sampled_time)
+        gamma_s = self.scheduler.get_gamma(sampled_time-1/self.timesteps)
+        var_t = torch.sigmoid(gamma_t)
+        weighting = torch.expm1(gamma_t-gamma_s)
+
+        # Estimate prediction
+        noised_data = (1 - var_t).sqrt() * batch + var_t.sqrt() * noise
         prediction = self.denoising_network(
             noised_data, sampled_time.view(-1, 1)
         )
-        head_loss = self.head(
-            state=batch,
-            noise=noise,
-            prediction=prediction,
-            alpha_sqrt=alpha_sqrt,
-            sigma=sigma
-        )
-        self.log(f'{prefix}/loss', head_loss, on_step=False, on_epoch=True,
-                 prog_bar=True)
-        denoised_batch = self.head.get_state(
-            latent_state=noised_data,
-            prediction=prediction,
-            alpha_sqrt=alpha_sqrt,
-            sigma=sigma
-        )
-        data_loss = F.l1_loss(denoised_batch, batch)
+
+        # Estimate losses
+        loss_recon = self.get_recon_loss(batch, noise).mean()
+        loss_diff = self.get_diff_loss(prediction, noise, weighting).mean()
+        loss_latent = self.get_latent_loss(batch).mean()
+        total_loss = loss_recon + loss_diff + loss_latent
+
+        self.log_dict({
+            f"{prefix}/loss_recon": loss_recon,
+            f"{prefix}/loss_diff": loss_diff,
+            f"{prefix}/loss_latent": loss_latent,
+            f"{prefix}/loss": total_loss,
+        })
+
+        # Estimate auxiliary data loss
+        state = (noised_data-var_t.sqrt()*prediction) / (1-var_t).sqrt()
+        data_loss = (state-batch).abs().mean()
         self.log(f'{prefix}/data_loss', data_loss, on_step=False, on_epoch=True,
-                 prog_bar=True)
-        return head_loss
+                 prog_bar=False)
+        return total_loss
     
     def training_step(
             self,
