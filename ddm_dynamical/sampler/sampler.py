@@ -58,10 +58,10 @@ class BaseSampler(torch.nn.Module):
     def reconstruct(
             self,
             in_tensor: torch.Tensor,
-            start_time: float = 1.
+            n_steps: int = 250
     ) -> torch.Tensor:
         denoised_tensor = in_tensor
-        time_steps = torch.linspace(0, start_time, self.timesteps+1)[1:]
+        time_steps = torch.linspace(0, 1, self.timesteps+1)[1:n_steps+1]
         for step in reversed(time_steps):
             denoised_tensor = self(denoised_tensor, step)
         return denoised_tensor
