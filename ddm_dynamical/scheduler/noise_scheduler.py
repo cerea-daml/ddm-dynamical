@@ -11,6 +11,7 @@
 
 # System modules
 import logging
+import abc
 
 # External modules
 import torch
@@ -21,24 +22,16 @@ import torch
 logger = logging.getLogger(__name__)
 
 
-class NoiseScheduler(torch.nn.Module):
-    def __init__(
-            self,
-            betas: torch.Tensor,
-            timesteps: int = 1000,
-    ):
-        super().__init__()
-        assert len(betas) == timesteps, "The betas don't specify all timesteps!"
-        alphas_prime = 1-betas
-        alphas = torch.cumprod(alphas_prime, dim=0)
-        alphas = torch.cat((torch.ones_like(alphas[-1:]), alphas), dim=0)
-        sigmas = (1-alphas).sqrt()
-        self.register_buffer("alphas", alphas)
-        self.register_buffer("sigmas", sigmas)
-        self.timesteps = timesteps
+class NoiseScheduler(torch.nn.Module, abc.ABC):
+    @abc.abstractmethod
+    def get_gamma(self, timestep: torch.Tensor) -> torch.Tensor:
+        pass
 
-    def get_alpha(self, timestep: int) -> float:
-        return self.alphas[timestep]
+    def get_snr(self, timestep: torch.Tensor) -> torch.Tensor:
+        return torch.exp(self.get_gamma(timestep))
 
-    def get_sigma(self, timestep: int) -> float:
-        return self.sigmas[timestep]
+    def get_alpha(self, timestep: torch.Tensor) -> torch.Tensor:
+        return torch.sigmoid(-self.get_gamma(timestep))
+
+    def get_sigma(self, timestep: torch.Tensor) -> torch.Tensor:
+        return torch.sigmoid(self.get_gamma(timestep))
