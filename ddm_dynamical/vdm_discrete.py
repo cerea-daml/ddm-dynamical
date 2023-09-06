@@ -11,7 +11,7 @@
 
 # System modules
 import logging
-from typing import Any
+from typing import Any, Tuple
 
 # External modules
 from pytorch_lightning import LightningModule
@@ -29,6 +29,7 @@ class VDMDiscreteModule(LightningModule):
             self,
             denoising_network: torch.nn.Module,
             scheduler: "ddm_dynamical.scheduler.noise_scheduler.NoiseScheduler",
+            data_shape: Tuple[int] = (1,),
             timesteps: int = 1000,
             lr: float = 1E-3,
             sampler: "ddm_dynamical.sampler.sampler.BaseSampler" = None
@@ -59,7 +60,7 @@ class VDMDiscreteModule(LightningModule):
         self.denoising_network = denoising_network
         self.lr = lr
         self.sampler = sampler
-        self.recon_logvar = torch.nn.Parameter(torch.zeros(5, 1, 1))
+        self.recon_logvar = torch.nn.Parameter(torch.zeros(data_shape))
         self.save_hyperparameters(
             ignore=["denoising_network", "scheduler", "sampler"]
         )
