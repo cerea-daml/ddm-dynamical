@@ -118,23 +118,22 @@ class VDMDiscreteModule(LightningModule):
             noise: torch.Tensor,
             weighting: torch.Tensor
     ) -> torch.Tensor:
-        error_noise = (prediction - noise).pow(2).sum(dim=(1, 2, 3))
+        error_noise = (prediction - noise).pow(2).sum()
         loss_diff = 0.5 * self.timesteps * weighting * error_noise
-        return loss_diff
+        return loss_diff/prediction.size(0)
 
     def get_latent_loss(
             self,
             batch: torch.Tensor,
     ) -> torch.Tensor:
         gamma_1 = self.scheduler.get_gamma(
-            torch.ones(1,), dtype=batch.dtype, device=batch.device
+            torch.ones(1, dtype=batch.dtype, device=batch.device)
         )
         var_1 = torch.sigmoid(gamma_1)
         loss_latent = 0.5 * torch.sum(
             (1-var_1) * torch.square(batch) + var_1 - torch.log(var_1) - 1.,
-            dim=(1, 2, 3)
         )
-        return loss_latent
+        return loss_latent/batch.size(0)
 
     def get_recon_loss(
             self,
@@ -142,15 +141,15 @@ class VDMDiscreteModule(LightningModule):
             noise: torch.Tensor,
     ) -> torch.Tensor:
         gamma_0 = self.scheduler.get_gamma(
-            torch.ones(1, dtype=batch.dtype, device=batch.device)
+            torch.zeros(1, dtype=batch.dtype, device=batch.device)
         )
         var_0 = torch.sigmoid(gamma_0)
         x_hat = (1-var_0).sqrt() * batch + var_0.sqrt() * noise
         data_part = ((x_hat-batch).pow(2)/self.recon_logvar.exp())
         logvar_part = self.recon_logvar*torch.ones_like(batch)
         const_part = (2 * torch.pi * torch.ones_like(batch)).log()
-        loss_recon = 0.5 * (data_part+logvar_part+const_part).sum(dim=(1, 2, 3))
-        return loss_recon
+        loss_recon = 0.5 * (data_part+logvar_part+const_part).sum()
+        return loss_recon/batch.size(0)
 
     def estimate_loss(
             self,
@@ -183,8 +182,8 @@ class VDMDiscreteModule(LightningModule):
             f"{prefix}/loss_recon": loss_recon,
             f"{prefix}/loss_diff": loss_diff,
             f"{prefix}/loss_latent": loss_latent,
-            f"{prefix}/loss": total_loss,
         })
+        self.log(f'{prefix}/loss', total_loss)
 
         # Estimate auxiliary data loss
         state = (noised_data-var_t.sqrt()*prediction) / (1-var_t).sqrt()
