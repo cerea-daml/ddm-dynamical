@@ -24,7 +24,7 @@ import torch
 logger = logging.getLogger(__name__)
 
 
-class DiscreteDDMModule(LightningModule):
+class VDMDiscreteModule(LightningModule):
     def __init__(
             self,
             denoising_network: torch.nn.Module,
