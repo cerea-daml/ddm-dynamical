@@ -78,7 +78,7 @@ class NNScheduler(NoiseScheduler):
         gamma_ends = self(
             torch.tensor([0., 1.], dtype=gamma.dtype, device=gamma.device)
         )
-        scale = (gamma_ends[1]-gamma_ends[0])/(self.max_gamma-self.min_gamma)
+        scale = (self.max_gamma-self.min_gamma)/(gamma_ends[1]-gamma_ends[0])
         return self.min_gamma + scale * (gamma-gamma_ends[0])
 
     def get_gamma(self, time_tensor: torch.Tensor) -> torch.Tensor:
