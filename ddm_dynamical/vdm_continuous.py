@@ -15,7 +15,7 @@ from typing import Tuple
 
 # External modules
 import torch
-from torch.autograd import grad
+from functorch import grad
 
 # Internal modules
 from .vdm_discrete import VDMDiscreteModule
@@ -117,8 +117,7 @@ class VDMContinuousModule(VDMDiscreteModule):
             sampled_time: torch.Tensor
     ) -> torch.Tensor:
         sampled_time = torch.nn.Parameter(sampled_time)
-        gamma_t = self.scheduler.get_gamma(sampled_time)
-        weighting = grad(gamma_t, sampled_time, create_graph=True)[0]
+        weighting = grad(self.scheduler.get_gamma)(sampled_time)
         error_noise = (prediction - noise).pow(2)
         loss_diff = (0.5 * weighting * error_noise).sum()/prediction.size(0)
         return loss_diff
