@@ -63,7 +63,6 @@ class VDMDiscreteModule(LightningModule):
         self.decoder = decoder
         self.lr = lr
         self.sampler = sampler
-        self.recon_logvar = torch.nn.Parameter(torch.zeros(data_shape))
         self.save_hyperparameters(
             ignore=["denoising_network", "scheduler", "sampler"]
         )
@@ -144,16 +143,16 @@ class VDMDiscreteModule(LightningModule):
 
     def get_recon_loss(
             self,
-            data: torch.Tensor,
+            batch: torch.Tensor,
             latent: torch.Tensor,
             noise: torch.Tensor,
     ) -> torch.Tensor:
         gamma_0 = self.scheduler.get_gamma(
-            torch.zeros(1, dtype=data.dtype, device=data.device)
+            torch.zeros(1, dtype=batch.dtype, device=batch.device)
         )
         var_0 = torch.sigmoid(gamma_0)
         x_hat = (1-var_0).sqrt() * latent + var_0.sqrt() * noise
-        log_likelihood = self.decoder.log_likelihood(x_hat, data)
+        log_likelihood = self.decoder.log_likelihood(x_hat, batch)
         return -log_likelihood
 
     def estimate_loss(
