@@ -28,8 +28,9 @@ class VDMContinuousModule(VDMDiscreteModule):
     def __init__(
             self,
             denoising_network: torch.nn.Module,
+            encoder: torch.nn.Module,
+            decoder: torch.nn.Module,
             scheduler: "ddm_dynamical.scheduler.noise_scheduler.NoiseScheduler",
-            data_shape: Tuple[int] = (1,),
             lr: float = 1E-3,
             sampler: "ddm_dynamical.sampler.sampler.BaseSampler" = None
     ) -> None:
@@ -46,8 +47,6 @@ class VDMContinuousModule(VDMDiscreteModule):
         scheduler : ddm_dynamical.scheduler.noise_scheduler.NoiseScheduler
             This noise scheduler defines the signal to noise ratio for the time
             steps during training.
-        timesteps : int, default = 1000
-            The number of time steps used during training.
         lr : float, default = 1E-3
             The learning rate during training.
         sampler : {ddm_dynamical.sampler.sampler.BaseSampler, None}, default = None
@@ -55,6 +54,8 @@ class VDMContinuousModule(VDMDiscreteModule):
         """
         super().__init__(
             denoising_network=denoising_network,
+            encoder=encoder,
+            decoder=decoder,
             scheduler=scheduler,
             data_shape=data_shape,
             timesteps=None,
