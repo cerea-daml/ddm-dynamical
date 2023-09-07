@@ -57,7 +57,6 @@ class VDMContinuousModule(VDMDiscreteModule):
             encoder=encoder,
             decoder=decoder,
             scheduler=scheduler,
-            data_shape=data_shape,
             timesteps=None,
             lr=lr,
             sampler=sampler
