@@ -61,7 +61,11 @@ class BaseSampler(torch.nn.Module):
             n_steps: int = 250
     ) -> torch.Tensor:
         denoised_tensor = in_tensor
-        time_steps = torch.linspace(0, 1, self.timesteps+1)[1:n_steps+1]
+        time_steps = torch.linspace(
+            0, 1, self.timesteps+1,
+            device=in_tensor.device, dtype=in_tensor.dtype,
+            layout=in_tensor.layout
+        )[1:n_steps+1]
         for step in reversed(time_steps):
             denoised_tensor = self(denoised_tensor, step)
         return denoised_tensor
