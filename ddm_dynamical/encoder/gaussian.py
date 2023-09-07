@@ -10,6 +10,7 @@
 
 # System modules
 import logging
+from typing import Union
 
 # External modules
 
