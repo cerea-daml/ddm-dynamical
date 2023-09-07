@@ -13,6 +13,7 @@ import logging
 from typing import Union
 
 # External modules
+import torch
 
 # Internal modules
 

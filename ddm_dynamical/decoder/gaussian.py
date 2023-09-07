@@ -13,6 +13,7 @@ import logging
 from typing import Union, Tuple
 
 # External modules
+import torch
 import torch.nn
 
 # Internal modules
@@ -43,7 +44,7 @@ class GaussianDecoder(torch.nn.Module):
             target: torch.Tensor
     ) -> torch.Tensor:
         data_part = ((in_tensor-target).pow(2)/self.logvar.exp())
-        logvar_part = self.logvar*torch.ones_like(batch)
-        const_part = (2 * torch.pi * torch.ones_like(batch)).log()
+        logvar_part = self.logvar*torch.ones_like(target)
+        const_part = (2 * torch.pi * torch.ones_like(target)).log()
         nll = 0.5 * (data_part+logvar_part+const_part).sum() / in_tensor.size(0)
         return -nll
