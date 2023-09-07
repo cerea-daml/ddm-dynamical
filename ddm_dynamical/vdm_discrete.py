@@ -122,9 +122,9 @@ class VDMDiscreteModule(LightningModule):
         gamma_t = self.scheduler.get_gamma(sampled_time)
         gamma_s = self.scheduler.get_gamma(sampled_time-1/self.timesteps)
         weighting = torch.expm1(gamma_t - gamma_s)
-        error_noise = (prediction - noise).pow(2).sum()
+        error_noise = (prediction - noise).pow(2)
         loss_diff = 0.5 * self.timesteps * weighting * error_noise
-        return loss_diff/prediction.size(0)
+        return loss_diff.sum()/prediction.size(0)
 
     def get_latent_loss(
             self,
