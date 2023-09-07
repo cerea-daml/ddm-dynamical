@@ -117,8 +117,11 @@ class VDMDiscreteModule(LightningModule):
             self,
             prediction: torch.Tensor,
             noise: torch.Tensor,
-            weighting: torch.Tensor
+            sampled_time: torch.Tensor
     ) -> torch.Tensor:
+        gamma_t = self.scheduler.get_gamma(sampled_time)
+        gamma_s = self.scheduler.get_gamma(sampled_time-1/self.timesteps)
+        weighting = torch.expm1(gamma_t - gamma_s)
         error_noise = (prediction - noise).pow(2).sum()
         loss_diff = 0.5 * self.timesteps * weighting * error_noise
         return loss_diff/prediction.size(0)
@@ -163,9 +166,7 @@ class VDMDiscreteModule(LightningModule):
 
         # Evaluate scheduler
         gamma_t = self.scheduler.get_gamma(sampled_time)
-        gamma_s = self.scheduler.get_gamma(sampled_time-1/self.timesteps)
         var_t = torch.sigmoid(gamma_t)
-        weighting = torch.expm1(gamma_t-gamma_s)
 
         # Estimate prediction
         noised_data = (1 - var_t).sqrt() * batch + var_t.sqrt() * noise
@@ -175,7 +176,7 @@ class VDMDiscreteModule(LightningModule):
 
         # Estimate losses
         loss_recon = self.get_recon_loss(batch, noise).mean()
-        loss_diff = self.get_diff_loss(prediction, noise, weighting).mean()
+        loss_diff = self.get_diff_loss(prediction, noise, sampled_time).mean()
         loss_latent = self.get_latent_loss(batch).mean()
         total_loss = loss_recon + loss_diff + loss_latent
 
