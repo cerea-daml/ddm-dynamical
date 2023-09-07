@@ -15,7 +15,7 @@ from typing import Tuple
 
 # External modules
 import torch
-from functorch import grad
+from torch.func import grad
 
 # Internal modules
 from .vdm_discrete import VDMDiscreteModule
