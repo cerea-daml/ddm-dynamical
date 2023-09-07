@@ -28,8 +28,9 @@ class VDMDiscreteModule(LightningModule):
     def __init__(
             self,
             denoising_network: torch.nn.Module,
+            encoder: torch.nn.Module,
+            decoder: torch.nn.Module,
             scheduler: "ddm_dynamical.scheduler.noise_scheduler.NoiseScheduler",
-            data_shape: Tuple[int] = (1,),
             timesteps: int = 1000,
             lr: float = 1E-3,
             sampler: "ddm_dynamical.sampler.sampler.BaseSampler" = None
@@ -58,6 +59,8 @@ class VDMDiscreteModule(LightningModule):
         self.timesteps = timesteps
         self.scheduler = scheduler
         self.denoising_network = denoising_network
+        self.encoder = encoder
+        self.decoder = decoder
         self.lr = lr
         self.sampler = sampler
         self.recon_logvar = torch.nn.Parameter(torch.zeros(data_shape))
@@ -126,108 +129,107 @@ class VDMDiscreteModule(LightningModule):
         loss_diff = 0.5 * self.timesteps * weighting * error_noise
         return loss_diff.sum()/prediction.size(0)
 
-    def get_latent_loss(
+    def get_prior_loss(
             self,
-            batch: torch.Tensor,
+            latent: torch.Tensor,
     ) -> torch.Tensor:
         gamma_1 = self.scheduler.get_gamma(
-            torch.ones(1, dtype=batch.dtype, device=batch.device)
+            torch.ones(1, dtype=latent.dtype, device=latent.device)
         )
         var_1 = torch.sigmoid(gamma_1)
         loss_latent = 0.5 * torch.sum(
-            (1-var_1) * torch.square(batch) + var_1 - torch.log(var_1) - 1.,
+            (1-var_1) * torch.square(latent) + var_1 - torch.log(var_1) - 1.,
         )
-        return loss_latent/batch.size(0)
+        return loss_latent/latent.size(0)
 
     def get_recon_loss(
             self,
-            batch: torch.Tensor,
+            data: torch.Tensor,
+            latent: torch.Tensor,
             noise: torch.Tensor,
     ) -> torch.Tensor:
         gamma_0 = self.scheduler.get_gamma(
-            torch.zeros(1, dtype=batch.dtype, device=batch.device)
+            torch.zeros(1, dtype=data.dtype, device=data.device)
         )
         var_0 = torch.sigmoid(gamma_0)
-        x_hat = (1-var_0).sqrt() * batch + var_0.sqrt() * noise
-        data_part = ((x_hat-batch).pow(2)/self.recon_logvar.exp())
-        logvar_part = self.recon_logvar*torch.ones_like(batch)
-        const_part = (2 * torch.pi * torch.ones_like(batch)).log()
-        loss_recon = 0.5 * (data_part+logvar_part+const_part).sum()
-        return loss_recon/batch.size(0)
+        x_hat = (1-var_0).sqrt() * latent + var_0.sqrt() * noise
+        log_likelihood = self.decoder.log_likelihood(x_hat, data)
+        return -log_likelihood
 
     def estimate_loss(
             self,
-            batch: torch.Tensor,
+            data: torch.Tensor,
             prefix: str = "train"
     ) -> torch.Tensor:
         # Sampling
-        noise = torch.randn_like(batch)
-        sampled_time = self.sample_time(batch)
+        noise = torch.randn_like(data)
+        sampled_time = self.sample_time(data)
 
         # Evaluate scheduler
         gamma_t = self.scheduler.get_gamma(sampled_time)
         var_t = torch.sigmoid(gamma_t)
 
         # Estimate prediction
-        noised_data = (1 - var_t).sqrt() * batch + var_t.sqrt() * noise
+        latent = self.encoder(data)
+        noised_latent = (1 - var_t).sqrt() * latent + var_t.sqrt() * noise
         prediction = self.denoising_network(
-            noised_data, sampled_time.view(-1, 1)
+            noised_latent, sampled_time.view(-1, 1)
         )
 
         # Estimate losses
-        loss_recon = self.get_recon_loss(batch, noise).mean()
+        loss_recon = self.get_recon_loss(data, latent, noise).mean()
         loss_diff = self.get_diff_loss(prediction, noise, sampled_time).mean()
-        loss_latent = self.get_latent_loss(batch).mean()
-        total_loss = loss_recon + loss_diff + loss_latent
+        loss_prior = self.get_prior_loss(latent).mean()
+        total_loss = loss_recon + loss_diff + loss_prior
 
         self.log_dict({
             f"{prefix}/loss_recon": loss_recon,
             f"{prefix}/loss_diff": loss_diff,
-            f"{prefix}/loss_latent": loss_latent,
+            f"{prefix}/loss_prior": loss_prior,
         })
         self.log(f'{prefix}/loss', total_loss)
 
         # Estimate auxiliary data loss
-        state = (noised_data-var_t.sqrt()*prediction) / (1-var_t).sqrt()
-        data_loss = (state-batch).abs().mean()
+        state = (noised_latent-var_t.sqrt()*prediction) / (1-var_t).sqrt()
+        data_loss = (state-data).abs().mean()
         self.log(f'{prefix}/data_loss', data_loss, on_step=False, on_epoch=True,
                  prog_bar=False)
         return total_loss
     
     def training_step(
             self,
-            batch: torch.Tensor,
+            data: torch.Tensor,
             batch_idx: int
     ) -> Any:
-        total_loss = self.estimate_loss(batch, prefix='train')
+        total_loss = self.estimate_loss(data, prefix='train')
         return total_loss
 
     def validation_step(
             self,
-            batch: torch.Tensor,
+            data: torch.Tensor,
             batch_idx: int
     ) -> Any:
-        total_loss = self.estimate_loss(batch, prefix='val')
+        total_loss = self.estimate_loss(data, prefix='val')
         return total_loss
 
     def test_step(
             self,
-            batch: torch.Tensor,
+            data: torch.Tensor,
             batch_idx: int
     ) -> Any:
-        total_loss = self.estimate_loss(batch, prefix='test')
+        total_loss = self.estimate_loss(data, prefix='test')
         return total_loss
 
     def predict_step(
             self,
-            batch: Any,
+            data: Any,
             batch_idx: int,
             dataloader_idx: int = 0
     ) -> Any:
         if self.sampler is None:
             raise ValueError("To predict with diffusion model, "
                              "please set sampler!")
-        return self.sampler.sample(batch.shape)
+        return self.sampler.sample(data.shape)
 
     def configure_optimizers(
             self
