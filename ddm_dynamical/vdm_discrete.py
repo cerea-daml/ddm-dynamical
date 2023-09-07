@@ -64,7 +64,8 @@ class VDMDiscreteModule(LightningModule):
         self.lr = lr
         self.sampler = sampler
         self.save_hyperparameters(
-            ignore=["denoising_network", "scheduler", "sampler"]
+            ignore=["denoising_network", "encoder", "decoder", "scheduler",
+                    "sampler"]
         )
 
     def forward(self, in_tensor: torch.Tensor, time_tensor: torch.Tensor):
