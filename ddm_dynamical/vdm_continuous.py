@@ -84,11 +84,15 @@ class VDMContinuousModule(VDMDiscreteModule):
         time_shape = torch.Size(
             [template_tensor.size(0)] + [1, ] * (template_tensor.ndim-1)
         )
-        sampled_time = torch.rand(
-            *time_shape,
-            dtype=template_tensor.dtype,
-            device=template_tensor.device
+        time_shift = torch.randn(
+            1, dtype=template_tensor.dtype, device=template_tensor.device
         )
+        sampled_time = torch.linspace(
+            0, 1, template_tensor.size(0),
+            dtype=template_tensor.dtype, device=template_tensor.device
+        )
+        sampled_time = (time_shift+sampled_time) % 1
+        sampled_time = sampled_time.reshape(time_shape)
         return sampled_time
 
     def get_diff_loss(
