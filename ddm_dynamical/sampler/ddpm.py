@@ -24,8 +24,8 @@ class DDPMSampler(BaseSampler):
     def forward(
             self,
             in_data: torch.Tensor,
+            step: torch.Tensor,
             *tensors: torch.Tensor,
-            step: torch.Tensor
     ) -> torch.Tensor:
         # Estimate coefficients from scheduler
         prev_step = step-1/self.timesteps

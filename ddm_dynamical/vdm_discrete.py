@@ -69,8 +69,8 @@ class VDMDiscreteModule(LightningModule):
         )
 
     def forward(
-            self, in_tensor: torch.Tensor, *tensors: torch.Tensor,
-            time_tensor: torch.Tensor
+            self, in_tensor: torch.Tensor, time_tensor: torch.Tensor,
+            *tensors: torch.Tensor,
     ):
         """
         Predict the noise given the noised input tensor and the time.
@@ -88,7 +88,7 @@ class VDMDiscreteModule(LightningModule):
             The predicted noise.
             The output has the same shape as the in_tensor.
         """
-        return self.denoising_network(in_tensor, *tensors, time_tensor)
+        return self.denoising_network(in_tensor, time_tensor, *tensors)
 
     def sample_time(
             self,
@@ -177,7 +177,7 @@ class VDMDiscreteModule(LightningModule):
         latent = self.encoder(data)
         noised_latent = (1 - var_t).sqrt() * latent + var_t.sqrt() * noise
         prediction = self.denoising_network(
-            noised_latent, *tensors, sampled_time.view(-1, 1)
+            noised_latent, sampled_time.view(-1, 1), *tensors
         )
 
         # Estimate losses
