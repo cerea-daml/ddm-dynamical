@@ -14,6 +14,7 @@ import logging
 
 # External modules
 import torch
+from tqdm.autonotebook import tqdm
 
 # Internal modules
 
@@ -68,7 +69,8 @@ class BaseSampler(torch.nn.Module):
             device=in_tensor.device, dtype=in_tensor.dtype,
             layout=in_tensor.layout
         )[1:n_steps+1]
-        for step in reversed(time_steps):
+        pbar = tqdm(reversed(time_steps), total=self.timesteps, leave=False)
+        for step in pbar:
             denoised_tensor = self(denoised_tensor, step, *tensors)
         return denoised_tensor
 
