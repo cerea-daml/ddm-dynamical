@@ -11,7 +11,7 @@
 
 # System modules
 import logging
-from typing import Any, Tuple
+from typing import Any, Tuple, Optional
 
 # External modules
 from pytorch_lightning import LightningModule
@@ -68,7 +68,10 @@ class VDMDiscreteModule(LightningModule):
                     "sampler"]
         )
 
-    def forward(self, in_tensor: torch.Tensor, time_tensor: torch.Tensor):
+    def forward(
+            self, in_tensor: torch.Tensor, *tensors: torch.Tensor,
+            time_tensor: torch.Tensor
+    ):
         """
         Predict the noise given the noised input tensor and the time.
 
@@ -85,7 +88,7 @@ class VDMDiscreteModule(LightningModule):
             The predicted noise.
             The output has the same shape as the in_tensor.
         """
-        return self.denoising_network(in_tensor, time_tensor)
+        return self.denoising_network(in_tensor, *tensors, time_tensor)
 
     def sample_time(
             self,
@@ -159,7 +162,8 @@ class VDMDiscreteModule(LightningModule):
     def estimate_loss(
             self,
             data: torch.Tensor,
-            prefix: str = "train"
+            *tensors: torch.Tensor,
+            prefix: str = "train",
     ) -> torch.Tensor:
         # Sampling
         noise = torch.randn_like(data)
@@ -173,7 +177,7 @@ class VDMDiscreteModule(LightningModule):
         latent = self.encoder(data)
         noised_latent = (1 - var_t).sqrt() * latent + var_t.sqrt() * noise
         prediction = self.denoising_network(
-            noised_latent, sampled_time.view(-1, 1)
+            noised_latent, *tensors, sampled_time.view(-1, 1)
         )
 
         # Estimate losses
@@ -198,26 +202,26 @@ class VDMDiscreteModule(LightningModule):
     
     def training_step(
             self,
-            data: torch.Tensor,
+            data: Any,
             batch_idx: int
     ) -> Any:
-        total_loss = self.estimate_loss(data, prefix='train')
+        total_loss = self.estimate_loss(*data, prefix='train')
         return total_loss
 
     def validation_step(
             self,
-            data: torch.Tensor,
+            data: Any,
             batch_idx: int
     ) -> Any:
-        total_loss = self.estimate_loss(data, prefix='val')
+        total_loss = self.estimate_loss(*data, prefix='val')
         return total_loss
 
     def test_step(
             self,
-            data: torch.Tensor,
+            data: Any,
             batch_idx: int
     ) -> Any:
-        total_loss = self.estimate_loss(data, prefix='test')
+        total_loss = self.estimate_loss(*data, prefix='test')
         return total_loss
 
     def predict_step(
@@ -229,7 +233,11 @@ class VDMDiscreteModule(LightningModule):
         if self.sampler is None:
             raise ValueError("To predict with diffusion model, "
                              "please set sampler!")
-        return self.sampler.sample(data.shape)
+        if isinstance(data, torch.Tensor):
+            sample = self.sampler.sample(data.shape)
+        else:
+            sample = self.sampler.sample(data[0].shape, *data[1:])
+        return self.decoder(sample)
 
     def configure_optimizers(
             self

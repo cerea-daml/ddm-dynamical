@@ -62,25 +62,6 @@ class VDMContinuousModule(VDMDiscreteModule):
             sampler=sampler
         )
 
-    def forward(self, in_tensor: torch.Tensor, time_tensor: torch.Tensor):
-        """
-        Predict the noise given the noised input tensor and the time.
-
-        Parameters
-        ----------
-        in_tensor : torch.Tensor
-            The noised input for the neural network.
-        time_tensor : torch.Tensor
-            The continuous input time [0, 1].
-
-        Returns
-        -------
-        output_tensor : torch.Tensor
-            The predicted noise.
-            The output has the same shape as the in_tensor.
-        """
-        return self.denoising_network(in_tensor, time_tensor)
-
     def sample_time(
             self,
             template_tensor: torch.Tensor
