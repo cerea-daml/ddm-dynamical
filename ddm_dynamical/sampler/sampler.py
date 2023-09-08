@@ -49,15 +49,17 @@ class BaseSampler(torch.nn.Module):
     @torch.no_grad()
     def sample(
             self,
-            sample_shape=torch.Size([])
+            sample_shape=torch.Size([]),
+            *tensors: torch.Tensor
     ) -> torch.Tensor:
         prior_sample = self.generate_prior_sample(sample_shape)
-        denoised_data = self.reconstruct(prior_sample, self.timesteps)
+        denoised_data = self.reconstruct(prior_sample, *tensors, self.timesteps)
         return denoised_data
 
     def reconstruct(
             self,
             in_tensor: torch.Tensor,
+            *tensors: torch.Tensor,
             n_steps: int = 250
     ) -> torch.Tensor:
         denoised_tensor = in_tensor
@@ -67,12 +69,13 @@ class BaseSampler(torch.nn.Module):
             layout=in_tensor.layout
         )[1:n_steps+1]
         for step in reversed(time_steps):
-            denoised_tensor = self(denoised_tensor, step)
+            denoised_tensor = self(denoised_tensor, *tensors, step)
         return denoised_tensor
 
     def forward(
             self,
             in_data: torch.Tensor,
+            *tensors: torch.Tensor,
             step: torch.Tensor
     ) -> torch.Tensor:
         pass

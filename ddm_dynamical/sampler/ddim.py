@@ -55,7 +55,8 @@ class DDIMSampler(BaseSampler):
 
     def forward(
             self,
-            in_tensor: torch.Tensor,
+            in_data: torch.Tensor,
+            *tensors: torch.Tensor,
             step: torch.Tensor
     ) -> torch.Tensor:
         # Estimate coefficients
@@ -71,13 +72,13 @@ class DDIMSampler(BaseSampler):
 
         # Estimate predictions
         time_tensor = torch.ones(
-            in_tensor.size(0), 1, device=in_tensor.device, dtype=in_tensor.dtype
+            in_data.size(0), 1, device=in_data.device, dtype=in_data.dtype
         ) * step
-        prediction = self.denoising_model(in_tensor, time_tensor)
-        state = (in_tensor-var_t.sqrt()*prediction) / (1-var_t).sqrt()
+        prediction = self.denoising_model(in_data, *tensors, time_tensor)
+        state = (in_data-var_t.sqrt()*prediction) / (1-var_t).sqrt()
 
         if prev_step > 0:
-            noise = torch.randn_like(in_tensor)
+            noise = torch.randn_like(in_data)
             state = alpha_sqrt_s * state + noise_level[0] * prediction \
                     + noise_level[1] * noise
         return state
