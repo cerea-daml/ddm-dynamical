@@ -51,17 +51,19 @@ class BaseSampler(torch.nn.Module):
     def sample(
             self,
             sample_shape=torch.Size([]),
-            *tensors: torch.Tensor
+            mask: torch.Tensor = None
     ) -> torch.Tensor:
         prior_sample = self.generate_prior_sample(sample_shape)
-        denoised_data = self.reconstruct(prior_sample, self.timesteps, *tensors)
+        denoised_data = self.reconstruct(
+            prior_sample, self.timesteps, mask=mask
+        )
         return denoised_data
 
     def reconstruct(
             self,
             in_tensor: torch.Tensor,
             n_steps: int = 250,
-            *tensors: torch.Tensor,
+            mask: torch.Tensor = None
     ) -> torch.Tensor:
         denoised_tensor = in_tensor
         time_steps = torch.linspace(
@@ -71,13 +73,13 @@ class BaseSampler(torch.nn.Module):
         )[1:n_steps+1]
         pbar = tqdm(reversed(time_steps), total=self.timesteps, leave=False)
         for step in pbar:
-            denoised_tensor = self(denoised_tensor, step, *tensors)
+            denoised_tensor = self(denoised_tensor, step, mask=mask)
         return denoised_tensor
 
     def forward(
             self,
             in_data: torch.Tensor,
             step: torch.Tensor,
-            *tensors: torch.Tensor,
+            mask: torch.Tensor,
     ) -> torch.Tensor:
         pass
