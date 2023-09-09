@@ -244,9 +244,11 @@ class VDMDiscreteModule(LightningModule):
                              "please set sampler!")
         if isinstance(data, torch.Tensor):
             sample = self.sampler.sample(data.shape)
+            sample = self.decoder(sample)
         else:
             sample = self.sampler.sample(data[0].shape, *data[1:])
-        return self.decoder(sample)
+            sample = self.decoder(sample, *data[1:])
+        return sample
 
     def configure_optimizers(
             self

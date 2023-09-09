@@ -35,13 +35,16 @@ class GaussianDecoder(torch.nn.Module):
         self.logvar = torch.nn.Parameter(torch.zeros(*data_shape))
         self.eps = eps
 
-    def forward(self, in_tensor: torch.Tensor) -> torch.Tensor:
+    def forward(
+            self, in_tensor: torch.Tensor, *tensors: torch.Tensor
+    ) -> torch.Tensor:
         return in_tensor * self.std + self.mean
 
     def log_likelihood(
             self,
             in_tensor: torch.Tensor,
-            target: torch.Tensor
+            target: torch.Tensor,
+            *tensors: torch.Tensor,
     ) -> torch.Tensor:
         data_part = ((in_tensor-target).pow(2)/self.logvar.exp())
         logvar_part = self.logvar*torch.ones_like(target)
