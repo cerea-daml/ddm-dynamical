@@ -57,7 +57,7 @@ def train_model():
         max_epochs=200,
         benchmark=False,
         deterministic=True,
-        accelerator="mps"
+        accelerator="auto"
     )
     trainer.fit(model=model, datamodule=data_module)
 

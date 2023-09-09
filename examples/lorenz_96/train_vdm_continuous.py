@@ -15,6 +15,8 @@ import logging
 import pytorch_lightning as pl
 
 from data_modules import UnconditionalStateDataModule
+from ddm_dynamical.encoder import GaussianEncoder
+from ddm_dynamical.decoder import GaussianDecoder
 from ddm_dynamical.sampler import DDIMSampler
 from ddm_dynamical.scheduler import NNScheduler
 from ddm_dynamical.vdm_continuous import VDMContinuousModule
@@ -34,9 +36,13 @@ def train_model():
     main_logger.info("Initialized data")
 
     denoising_network = UNeXt()
+    encoder = GaussianEncoder()
+    decoder = GaussianDecoder()
     scheduler = NNScheduler()
     model = VDMContinuousModule(
         denoising_network=denoising_network,
+        encoder=encoder,
+        decoder=decoder,
         scheduler=scheduler,
         lr=3E-4,
         sampler=DDIMSampler(
@@ -51,7 +57,7 @@ def train_model():
         max_epochs=200,
         benchmark=False,
         deterministic=True,
-        accelerator="mps"
+        accelerator="auto"
     )
     trainer.fit(model=model, datamodule=data_module)
 
