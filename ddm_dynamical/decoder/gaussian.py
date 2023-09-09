@@ -15,6 +15,7 @@ from typing import Union, Tuple
 # External modules
 import torch
 import torch.nn
+from torch.distributions import Normal
 
 # Internal modules
 
@@ -44,10 +45,8 @@ class GaussianDecoder(torch.nn.Module):
             self,
             in_tensor: torch.Tensor,
             target: torch.Tensor,
-            *tensors: torch.Tensor,
+            mask: torch.Tensor
     ) -> torch.Tensor:
-        data_part = ((in_tensor-target).pow(2)/self.logvar.exp())
-        logvar_part = self.logvar*torch.ones_like(target)
-        const_part = (2 * torch.pi * torch.ones_like(target)).log()
-        nll = 0.5 * (data_part+logvar_part+const_part).sum() / in_tensor.size(0)
-        return -nll
+        dist = Normal(target, (self.logvar*0.5).exp())
+        logprob = mask * dist.log_prob(in_tensor)
+        return logprob.sum() / mask.sum()
