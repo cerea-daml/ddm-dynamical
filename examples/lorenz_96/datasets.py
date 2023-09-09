@@ -10,6 +10,7 @@
 
 # System modules
 import logging
+from typing import Dict
 
 # External modules
 from torch.utils.data import Dataset
@@ -37,5 +38,5 @@ class StateDataset(Dataset):
     def __len__(self) -> int:
         return self.state_tensor.size(0)
 
-    def __getitem__(self, idx: int) -> torch.Tensor:
+    def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
         return (self.state_tensor[idx]-_mean) / _std

@@ -107,5 +107,5 @@ class VDMContinuousModule(VDMDiscreteModule):
             lambda x: self.scheduler.get_gamma(x).sum()
         )(sampled_time)
         error_noise = mask * (prediction - noise).pow(2)
-        loss_diff = (0.5 * weighting * error_noise).sum()/mask.sum()
-        return loss_diff
+        loss_diff = (0.5 * weighting * error_noise).sum()
+        return loss_diff/mask.sum()

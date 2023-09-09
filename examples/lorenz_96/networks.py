@@ -316,7 +316,7 @@ class UNeXt(torch.nn.Module):
             features_tensor = layer(features_tensor, embedded_time)
         return features_tensor
 
-    def forward(self, in_tensor, time_tensor):
+    def forward(self, in_tensor, time_tensor, mask=None):
         extracted_features = self.extract_features(
             in_tensor=in_tensor, time_tensor=time_tensor
         )
