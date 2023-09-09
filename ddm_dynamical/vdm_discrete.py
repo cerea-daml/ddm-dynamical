@@ -70,7 +70,7 @@ class VDMDiscreteModule(LightningModule):
 
     def forward(
             self, in_tensor: torch.Tensor, time_tensor: torch.Tensor,
-            *tensors: torch.Tensor,
+            mask: torch.Tensor = None,
     ):
         """
         Predict the noise given the noised input tensor and the time.
@@ -88,7 +88,7 @@ class VDMDiscreteModule(LightningModule):
             The predicted noise.
             The output has the same shape as the in_tensor.
         """
-        return self.denoising_network(in_tensor, time_tensor, *tensors)
+        return self.denoising_network(in_tensor, time_tensor, mask)
 
     def sample_time(
             self,
@@ -123,48 +123,56 @@ class VDMDiscreteModule(LightningModule):
             self,
             prediction: torch.Tensor,
             noise: torch.Tensor,
-            sampled_time: torch.Tensor
+            sampled_time: torch.Tensor,
+            mask: torch.Tensor,
     ) -> torch.Tensor:
         gamma_t = self.scheduler.get_gamma(sampled_time)
         gamma_s = self.scheduler.get_gamma(sampled_time-1/self.timesteps)
         weighting = torch.expm1(gamma_t - gamma_s)
-        error_noise = (prediction - noise).pow(2)
+        error_noise = mask * (prediction - noise).pow(2)
         loss_diff = 0.5 * self.timesteps * weighting * error_noise
-        return loss_diff.sum()/prediction.size(0)
+        return loss_diff.sum()/mask.sum()
 
     def get_prior_loss(
             self,
             latent: torch.Tensor,
+            mask: torch.Tensor
     ) -> torch.Tensor:
         gamma_1 = self.scheduler.get_gamma(
             torch.ones(1, dtype=latent.dtype, device=latent.device)
         )
         var_1 = torch.sigmoid(gamma_1)
         loss_latent = 0.5 * torch.sum(
-            (1-var_1) * torch.square(latent) + var_1 - torch.log(var_1) - 1.,
+            mask * (1-var_1) * torch.square(latent)
+            + var_1 - torch.log(var_1) - 1.,
         )
-        return loss_latent/latent.size(0)
+        return loss_latent/mask.sum()
 
     def get_recon_loss(
             self,
             batch: torch.Tensor,
             latent: torch.Tensor,
             noise: torch.Tensor,
+            mask: torch.Tensor
     ) -> torch.Tensor:
         gamma_0 = self.scheduler.get_gamma(
             torch.zeros(1, dtype=batch.dtype, device=batch.device)
         )
         var_0 = torch.sigmoid(gamma_0)
         x_hat = (1-var_0).sqrt() * latent + var_0.sqrt() * noise
-        log_likelihood = self.decoder.log_likelihood(x_hat, batch)
+        log_likelihood = self.decoder.log_likelihood(x_hat, batch, mask)
         return -log_likelihood
 
     def estimate_loss(
             self,
-            data: torch.Tensor,
-            *tensors: torch.Tensor,
+            batch: torch.Tensor,
             prefix: str = "train",
     ) -> torch.Tensor:
+        data = batch.pop("data")
+        mask = batch.pop("mask", None)
+        if mask is None:
+            mask = torch.ones_like(data)
+
         # Sampling
         noise = torch.randn_like(data)
         sampled_time = self.sample_time(data)
@@ -177,13 +185,15 @@ class VDMDiscreteModule(LightningModule):
         latent = self.encoder(data)
         noised_latent = (1 - var_t).sqrt() * latent + var_t.sqrt() * noise
         prediction = self.denoising_network(
-            noised_latent, sampled_time.view(-1, 1), *tensors
+            noised_latent, time_tensor=sampled_time.view(-1, 1), mask=mask
         )
 
         # Estimate losses
-        loss_recon = self.get_recon_loss(data, latent, noise).mean()
-        loss_diff = self.get_diff_loss(prediction, noise, sampled_time).mean()
-        loss_prior = self.get_prior_loss(latent).mean()
+        loss_recon = self.get_recon_loss(data, latent, noise, mask=mask).mean()
+        loss_diff = self.get_diff_loss(
+            prediction, noise, sampled_time, mask=mask
+        ).mean()
+        loss_prior = self.get_prior_loss(latent, mask=mask).mean()
         total_loss = loss_recon + loss_diff + loss_prior
 
         self.log_dict({
@@ -195,59 +205,50 @@ class VDMDiscreteModule(LightningModule):
 
         # Estimate auxiliary data loss
         state = (noised_latent-var_t.sqrt()*prediction) / (1-var_t).sqrt()
-        data_loss = (state-data).abs().mean()
+        data_error = mask * (state-data)
+        data_loss = data_error.abs().sum() / mask.sum()
         self.log(f'{prefix}/data_loss', data_loss, on_step=False, on_epoch=True,
                  prog_bar=False)
         return total_loss
     
     def training_step(
             self,
-            data: Any,
+            batch: Dict[str, torch.Tensor],
             batch_idx: int
     ) -> Any:
-        if isinstance(data, torch.Tensor):
-            total_loss = self.estimate_loss(data, prefix='train')
-        else:
-            total_loss = self.estimate_loss(*data, prefix='train')
+        total_loss = self.estimate_loss(batch, prefix="train")
         return total_loss
+
 
     def validation_step(
             self,
-            data: Any,
+            batch: Dict[str, torch.Tensor],
             batch_idx: int
     ) -> Any:
-        if isinstance(data, torch.Tensor):
-            total_loss = self.estimate_loss(data, prefix='val')
-        else:
-            total_loss = self.estimate_loss(*data, prefix='val')
+        total_loss = self.estimate_loss(batch, prefix="val")
         return total_loss
 
     def test_step(
             self,
-            data: Any,
+            batch: Dict[str, torch.Tensor],
             batch_idx: int
     ) -> Any:
-        if isinstance(data, torch.Tensor):
-            total_loss = self.estimate_loss(data, prefix='test')
-        else:
-            total_loss = self.estimate_loss(*data, prefix='test')
+        total_loss = self.estimate_loss(batch, prefix="test")
         return total_loss
 
     def predict_step(
             self,
-            data: Any,
+            batch: Dict[str, torch.Tensor],
             batch_idx: int,
             dataloader_idx: int = 0
     ) -> Any:
         if self.sampler is None:
             raise ValueError("To predict with diffusion model, "
                              "please set sampler!")
-        if isinstance(data, torch.Tensor):
-            sample = self.sampler.sample(data.shape)
-            sample = self.decoder(sample)
-        else:
-            sample = self.sampler.sample(data[0].shape, *data[1:])
-            sample = self.decoder(sample, *data[1:])
+        data = batch.pop("data")
+        mask = batch.pop("mask", None)
+        sample = self.sampler.sample(data.shape, mask=mask)
+        sample = self.decoder(sample, mask=mask)
         return sample
 
     def configure_optimizers(
