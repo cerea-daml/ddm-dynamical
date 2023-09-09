@@ -205,7 +205,10 @@ class VDMDiscreteModule(LightningModule):
             data: Any,
             batch_idx: int
     ) -> Any:
-        total_loss = self.estimate_loss(*data, prefix='train')
+        if isinstance(data, torch.Tensor):
+            total_loss = self.estimate_loss(data, prefix='train')
+        else:
+            total_loss = self.estimate_loss(*data, prefix='train')
         return total_loss
 
     def validation_step(
@@ -213,7 +216,10 @@ class VDMDiscreteModule(LightningModule):
             data: Any,
             batch_idx: int
     ) -> Any:
-        total_loss = self.estimate_loss(*data, prefix='val')
+        if isinstance(data, torch.Tensor):
+            total_loss = self.estimate_loss(data, prefix='val')
+        else:
+            total_loss = self.estimate_loss(*data, prefix='val')
         return total_loss
 
     def test_step(
@@ -221,7 +227,10 @@ class VDMDiscreteModule(LightningModule):
             data: Any,
             batch_idx: int
     ) -> Any:
-        total_loss = self.estimate_loss(*data, prefix='test')
+        if isinstance(data, torch.Tensor):
+            total_loss = self.estimate_loss(data, prefix='test')
+        else:
+            total_loss = self.estimate_loss(*data, prefix='test')
         return total_loss
 
     def predict_step(
