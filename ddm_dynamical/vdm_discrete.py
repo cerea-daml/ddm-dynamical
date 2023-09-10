@@ -81,6 +81,9 @@ class VDMDiscreteModule(LightningModule):
             The noised input for the neural network.
         time_tensor : torch.Tensor
             The continuous input time [0, 1].
+        mask : torch.Tensor, default = None
+            The mask [0, 1] indicating which values are valid. Default is None
+            for cases where the neural network shouldn't be masked.
 
         Returns
         -------
@@ -204,7 +207,7 @@ class VDMDiscreteModule(LightningModule):
             f"{prefix}/loss_recon": loss_recon,
             f"{prefix}/loss_diff": loss_diff,
             f"{prefix}/loss_prior": loss_prior,
-        }, batch_size=batch_size)
+        }, batch_size=batch_size, prog_bar=True)
         self.log(f'{prefix}/loss', total_loss, batch_size=batch_size,
                  prog_bar=True)
 
@@ -223,7 +226,6 @@ class VDMDiscreteModule(LightningModule):
     ) -> Any:
         total_loss = self.estimate_loss(batch, prefix="train")
         return total_loss
-
 
     def validation_step(
             self,
