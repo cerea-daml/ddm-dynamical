@@ -80,6 +80,6 @@ class BaseSampler(torch.nn.Module):
             self,
             in_data: torch.Tensor,
             step: torch.Tensor,
-            mask: torch.Tensor,
+            mask: torch.Tensor = None,
     ) -> torch.Tensor:
         pass
