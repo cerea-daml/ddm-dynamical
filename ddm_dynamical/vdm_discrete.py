@@ -11,7 +11,7 @@
 
 # System modules
 import logging
-from typing import Any, Tuple, Optional
+from typing import Any, Dict
 
 # External modules
 from pytorch_lightning import LightningModule
@@ -168,7 +168,10 @@ class VDMDiscreteModule(LightningModule):
             batch: torch.Tensor,
             prefix: str = "train",
     ) -> torch.Tensor:
+        # Pop data and mask out of batch
         data = batch.pop("data")
+        batch_size = data.size(0)
+
         mask = batch.pop("mask", None)
         if mask is None:
             mask = torch.ones_like(data)
@@ -196,19 +199,21 @@ class VDMDiscreteModule(LightningModule):
         loss_prior = self.get_prior_loss(latent, mask=mask).mean()
         total_loss = loss_recon + loss_diff + loss_prior
 
+        # Log losses
         self.log_dict({
             f"{prefix}/loss_recon": loss_recon,
             f"{prefix}/loss_diff": loss_diff,
             f"{prefix}/loss_prior": loss_prior,
-        })
-        self.log(f'{prefix}/loss', total_loss)
+        }, batch_size=batch_size)
+        self.log(f'{prefix}/loss', total_loss, batch_size=batch_size,
+                 prog_bar=True)
 
         # Estimate auxiliary data loss
         state = (noised_latent-var_t.sqrt()*prediction) / (1-var_t).sqrt()
         data_error = mask * (state-data)
         data_loss = data_error.abs().sum() / mask.sum()
-        self.log(f'{prefix}/data_loss', data_loss, on_step=False, on_epoch=True,
-                 prog_bar=False)
+        self.log(f'{prefix}/data_loss', data_loss, prog_bar=False,
+                 batch_size=batch_size)
         return total_loss
     
     def training_step(
