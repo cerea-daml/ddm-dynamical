@@ -37,7 +37,7 @@ class GaussianDecoder(torch.nn.Module):
         self.eps = eps
 
     def forward(
-            self, in_tensor: torch.Tensor, *tensors: torch.Tensor
+            self, in_tensor: torch.Tensor, mask: torch.Tensor = None
     ) -> torch.Tensor:
         return in_tensor * self.std + self.mean
 
