@@ -39,4 +39,7 @@ class StateDataset(Dataset):
         return self.state_tensor.size(0)
 
     def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
-        return {"data": (self.state_tensor[idx]-_mean) / _std}
+        return {
+            "data": (self.state_tensor[idx]-_mean) / _std,
+            "mask": torch.randint(2, (40,), dtype=torch.float)
+        }
