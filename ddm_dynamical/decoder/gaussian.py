@@ -44,9 +44,7 @@ class GaussianDecoder(torch.nn.Module):
     def log_likelihood(
             self,
             in_tensor: torch.Tensor,
-            target: torch.Tensor,
-            mask: torch.Tensor
+            target: torch.Tensor
     ) -> torch.Tensor:
         dist = Normal(target, (self.logvar*0.5).exp())
-        logprob = mask * dist.log_prob(in_tensor)
-        return logprob.sum() / mask.sum()
+        return dist.log_prob(in_tensor)

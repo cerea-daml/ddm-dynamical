@@ -122,48 +122,55 @@ class VDMDiscreteModule(LightningModule):
         ) / self.timesteps
         return sampled_time
 
+    def masked_average(
+            self,
+            loss_tensor: torch.Tensor,
+            mask: torch.Tensor = None
+    ) -> torch.Tensor:
+        loss_mask = torch.ones_like(loss_tensor)
+        if mask is not None:
+            loss_mask *= mask
+        return (loss_tensor*loss_mask).sum()/loss_mask.sum()
+
     def get_diff_loss(
             self,
             prediction: torch.Tensor,
             noise: torch.Tensor,
-            sampled_time: torch.Tensor,
-            mask: torch.Tensor,
+            sampled_time: torch.Tensor
     ) -> torch.Tensor:
         gamma_t = self.scheduler.get_gamma(sampled_time)
         gamma_s = self.scheduler.get_gamma(sampled_time-1/self.timesteps)
         weighting = torch.expm1(gamma_t - gamma_s)
-        error_noise = mask * (prediction - noise).pow(2)
+        error_noise = (prediction - noise).pow(2)
         loss_diff = 0.5 * self.timesteps * weighting * error_noise
-        return loss_diff.sum()/mask.sum()
+        return loss_diff
 
     def get_prior_loss(
             self,
             latent: torch.Tensor,
-            mask: torch.Tensor
     ) -> torch.Tensor:
         gamma_1 = self.scheduler.get_gamma(
             torch.ones(1, dtype=latent.dtype, device=latent.device)
         )
         var_1 = torch.sigmoid(gamma_1)
-        loss_latent = 0.5 * torch.sum(
-            mask * (1-var_1) * torch.square(latent)
-            + var_1 - torch.log(var_1) - 1.,
+        loss_latent = 0.5 * (
+                (1-var_1) * torch.square(latent)
+                + var_1 - torch.log(var_1) - 1.
         )
-        return loss_latent/mask.sum()
+        return loss_latent
 
     def get_recon_loss(
             self,
             batch: torch.Tensor,
             latent: torch.Tensor,
-            noise: torch.Tensor,
-            mask: torch.Tensor
+            noise: torch.Tensor
     ) -> torch.Tensor:
         gamma_0 = self.scheduler.get_gamma(
             torch.zeros(1, dtype=batch.dtype, device=batch.device)
         )
         var_0 = torch.sigmoid(gamma_0)
         x_hat = (1-var_0).sqrt() * latent + var_0.sqrt() * noise
-        log_likelihood = self.decoder.log_likelihood(x_hat, batch, mask)
+        log_likelihood = self.decoder.log_likelihood(x_hat, batch)
         return -log_likelihood
 
     def estimate_loss(
@@ -174,10 +181,7 @@ class VDMDiscreteModule(LightningModule):
         # Pop data and mask out of batch
         data = batch.pop("data")
         batch_size = data.size(0)
-
         mask = batch.pop("mask", None)
-        if mask is None:
-            mask = torch.ones_like(data)
 
         # Sampling
         noise = torch.randn_like(data)
@@ -195,11 +199,15 @@ class VDMDiscreteModule(LightningModule):
         )
 
         # Estimate losses
-        loss_recon = self.get_recon_loss(data, latent, noise, mask=mask).mean()
-        loss_diff = self.get_diff_loss(
-            prediction, noise, sampled_time, mask=mask
-        ).mean()
-        loss_prior = self.get_prior_loss(latent, mask=mask).mean()
+        loss_recon = self.masked_average(
+            self.get_recon_loss(data, latent, noise), mask
+        )
+        loss_diff = self.masked_average(
+            self.get_diff_loss(prediction, noise, sampled_time), mask
+        )
+        loss_prior = self.masked_average(
+            self.get_prior_loss(latent), mask
+        )
         total_loss = loss_recon + loss_diff + loss_prior
 
         # Log losses
@@ -207,14 +215,14 @@ class VDMDiscreteModule(LightningModule):
             f"{prefix}/loss_recon": loss_recon,
             f"{prefix}/loss_diff": loss_diff,
             f"{prefix}/loss_prior": loss_prior,
-        }, batch_size=batch_size, prog_bar=True)
+        }, batch_size=batch_size)
         self.log(f'{prefix}/loss', total_loss, batch_size=batch_size,
                  prog_bar=True)
 
         # Estimate auxiliary data loss
         state = (noised_latent-var_t.sqrt()*prediction) / (1-var_t).sqrt()
-        data_error = mask * (state-data)
-        data_loss = data_error.abs().sum() / mask.sum()
+        data_abs_err = (state-data).abs()
+        data_loss = self.masked_average(data_abs_err, mask)
         self.log(f'{prefix}/data_loss', data_loss, prog_bar=False,
                  batch_size=batch_size)
         return total_loss
