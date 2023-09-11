@@ -34,8 +34,8 @@ class EvaluateSchedulerCallback(Callback):
             pl_module: LightningModule
     ) -> None:
         if trainer.logger is not None:
-            curr_param = next(pl_module.parameters())
-            self.timesteps.to(curr_param)
+            curr_param = next(pl_module.scheduler.parameters())
+            self.timesteps = self.timesteps.to(curr_param)
             gamma_t = pl_module.scheduler.get_gamma(self.timesteps)
             alpha_t = torch.sigmoid(-gamma_t).sqrt()
 
