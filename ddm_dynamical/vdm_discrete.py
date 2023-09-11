@@ -72,7 +72,7 @@ class VDMDiscreteModule(LightningModule):
 
     def forward(
             self, in_tensor: torch.Tensor, time_tensor: torch.Tensor,
-            mask: torch.Tensor = None,
+            mask: torch.Tensor = None, **conditioning: torch.Tensor
     ):
         """
         Predict the noise given the noised input tensor and the time.
@@ -86,14 +86,19 @@ class VDMDiscreteModule(LightningModule):
         mask : torch.Tensor, default = None
             The mask [0, 1] indicating which values are valid. Default is None
             for cases where the neural network shouldn't be masked.
+        conditioning: torch.Tensor
+            Additional tensors as keyword arguments. These tensors are
+            additional conditioning information, useable within the neural
+            network.
 
         Returns
         -------
         output_tensor : torch.Tensor
             The predicted noise.
-            The output has the same shape as the in_tensor.
         """
-        return self.denoising_network(in_tensor, time_tensor, mask)
+        return self.denoising_network(
+            in_tensor, time_tensor, mask, **conditioning
+        )
 
     def sample_time(
             self,
@@ -163,16 +168,16 @@ class VDMDiscreteModule(LightningModule):
 
     def get_recon_loss(
             self,
-            batch: torch.Tensor,
+            data: torch.Tensor,
             latent: torch.Tensor,
             noise: torch.Tensor
     ) -> torch.Tensor:
         gamma_0 = self.scheduler.get_gamma(
-            torch.zeros(1, dtype=batch.dtype, device=batch.device)
+            torch.zeros(1, dtype=data.dtype, device=data.device)
         )
         var_0 = torch.sigmoid(gamma_0)
         x_hat = (1-var_0).sqrt() * latent + var_0.sqrt() * noise
-        log_likelihood = self.decoder.log_likelihood(x_hat, batch)
+        log_likelihood = self.decoder.log_likelihood(x_hat, data)
         return -log_likelihood
 
     def estimate_loss(
@@ -197,7 +202,8 @@ class VDMDiscreteModule(LightningModule):
         latent = self.encoder(data)
         noised_latent = (1 - var_t).sqrt() * latent + var_t.sqrt() * noise
         prediction = self.denoising_network(
-            noised_latent, time_tensor=sampled_time.view(-1, 1), mask=mask
+            noised_latent, time_tensor=sampled_time.view(-1, 1), mask=mask,
+            **batch
         )
 
         # Estimate losses
@@ -264,7 +270,7 @@ class VDMDiscreteModule(LightningModule):
                              "please set sampler!")
         data = batch.pop("data")
         mask = batch.pop("mask", None)
-        sample = self.sampler.sample(data.shape, mask=mask)
+        sample = self.sampler.sample(data.shape, mask=mask, **batch)
         sample = self.decoder(sample, mask=mask)
         return sample
 
