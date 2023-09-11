@@ -32,6 +32,7 @@ class VDMContinuousModule(VDMDiscreteModule):
             decoder: torch.nn.Module,
             scheduler: "ddm_dynamical.scheduler.noise_scheduler.NoiseScheduler",
             lr: float = 1E-3,
+            weight_decay: float = None,
             sampler: "ddm_dynamical.sampler.sampler.BaseSampler" = None
     ) -> None:
         """
@@ -59,6 +60,7 @@ class VDMContinuousModule(VDMDiscreteModule):
             scheduler=scheduler,
             timesteps=None,
             lr=lr,
+            weight_decay=weight_decay,
             sampler=sampler
         )
 

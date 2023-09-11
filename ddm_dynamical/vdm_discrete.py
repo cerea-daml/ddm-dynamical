@@ -33,6 +33,7 @@ class VDMDiscreteModule(LightningModule):
             scheduler: "ddm_dynamical.scheduler.noise_scheduler.NoiseScheduler",
             timesteps: int = 1000,
             lr: float = 1E-3,
+            weight_decay: float = None,
             sampler: "ddm_dynamical.sampler.sampler.BaseSampler" = None
     ) -> None:
         """
@@ -63,6 +64,7 @@ class VDMDiscreteModule(LightningModule):
         self.decoder = decoder
         self.lr = lr
         self.sampler = sampler
+        self.weight_decay = weight_decay
         self.save_hyperparameters(
             ignore=["denoising_network", "encoder", "decoder", "scheduler",
                     "sampler"]
@@ -269,9 +271,17 @@ class VDMDiscreteModule(LightningModule):
     def configure_optimizers(
             self
     ) -> "torch.optim.Optimizer":
-        optimizer = torch.optim.Adam(
-            params=self.parameters(),
-            lr=self.lr,
-            betas=(0.9, 0.99)
-        )
+        if self.weight_decay is None:
+            optimizer = torch.optim.Adam(
+                params=self.parameters(),
+                lr=self.lr,
+                betas=(0.9, 0.99)
+            )
+        else:
+            optimizer = torch.optim.AdamW(
+                params=self.parameters(),
+                lr=self.lr,
+                betas=(0.9, 0.99),
+                weight_decay=self.weight_decay
+            )
         return optimizer
