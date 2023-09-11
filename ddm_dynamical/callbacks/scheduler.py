@@ -12,9 +12,12 @@
 import logging
 
 # External modules
+from pytorch_lightning import LightningModule, Trainer
 from pytorch_lightning.callbacks import Callback
-
 import matplotlib.pyplot as plt
+import torch
+
+
 # Internal modules
 
 main_logger = logging.getLogger(__name__)
