@@ -272,5 +272,6 @@ class VDMDiscreteModule(LightningModule):
         optimizer = torch.optim.Adam(
             params=self.parameters(),
             lr=self.lr,
+            betas=(0.9, 0.99)
         )
         return optimizer
