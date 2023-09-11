@@ -62,6 +62,7 @@ class NNScheduler(NoiseScheduler):
         self.l2 = LinearMonotonic(1, self.n_features)
         torch.nn.init.normal_(self.l2.weight)
         self.activation = torch.nn.Sigmoid()
+        self.gamma = torch.nn.Parameter(torch.ones(1)*1E-6)
         self.l3 = LinearMonotonic(self.n_features, 1, bias=False)
 
     def forward(self, time_tensor: torch.Tensor) -> torch.Tensor:
@@ -71,7 +72,7 @@ class NNScheduler(NoiseScheduler):
         branch = self.l2(branch)
         branch = self.activation(branch)
         branch = 2*(branch-0.5)
-        output += self.l3(branch) / self.n_features
+        output += self.gamma * self.l3(branch) / self.n_features
         return output.squeeze(dim=-1)
 
     def normalize_gamma(self, gamma:  torch.Tensor) -> torch.Tensor:
