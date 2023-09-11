@@ -71,7 +71,7 @@ class BaseSampler(torch.nn.Module):
             device=in_tensor.device, dtype=in_tensor.dtype,
             layout=in_tensor.layout
         )[1:n_steps+1]
-        pbar = tqdm(reversed(time_steps), total=self.timesteps, leave=False)
+        pbar = tqdm(reversed(time_steps), total=n_steps, leave=False)
         for step in pbar:
             denoised_tensor = self(denoised_tensor, step, mask=mask)
         return denoised_tensor
