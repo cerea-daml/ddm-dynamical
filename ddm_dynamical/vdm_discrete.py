@@ -284,10 +284,22 @@ class VDMDiscreteModule(LightningModule):
                 betas=(0.9, 0.99)
             )
         else:
-            optimizer = torch.optim.AdamW(
-                params=self.parameters(),
-                lr=self.lr,
-                betas=(0.9, 0.99),
-                weight_decay=self.weight_decay
+            diffusion_params = list(self.denoising_network.parameters())
+            other_params = list(self.scheduler.parameters()) + \
+                           list(self.decoder.parameters())
+            optimizer = torch.optim.AdamW([
+                dict(
+                    params=diffusion_params,
+                    lr=self.lr,
+                    betas=(0.9, 0.99),
+                    weight_decay=self.weight_decay
+                ),
+                dict(
+                    params=other_params,
+                    lr=self.lr,
+                    betas=(0.9, 0.99),
+                    weight_decay=0.
+                )
+            ]
             )
         return optimizer
