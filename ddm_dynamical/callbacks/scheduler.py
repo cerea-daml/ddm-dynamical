@@ -10,9 +10,9 @@
 
 # System modules
 import logging
+from typing import Any
 
 # External modules
-from pytorch_lightning import LightningModule, Trainer
 from pytorch_lightning.callbacks import Callback
 import matplotlib.pyplot as plt
 import torch
@@ -28,14 +28,16 @@ class EvaluateSchedulerCallback(Callback):
         super().__init__()
         self.timesteps = torch.linspace(0, 1, n_steps)
 
-    def on_validation_epoch_end(
-            self,
-            trainer: Trainer,
-            pl_module: LightningModule
+    def on_validation_batch_start(
+        self,
+        trainer: "pl.Trainer",
+        pl_module: "pl.LightningModule",
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int = 0,
     ) -> None:
         if trainer.logger is not None:
-            curr_param = next(pl_module.scheduler.parameters())
-            self.timesteps = self.timesteps.to(curr_param)
+            self.timesteps = self.timesteps.to(batch["data"])
             gamma_t = pl_module.scheduler.get_gamma(self.timesteps)
             alpha_t = torch.sigmoid(-gamma_t).sqrt()
 
