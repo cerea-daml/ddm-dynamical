@@ -1,28 +1,33 @@
-Denoising diffusion models for dynamical systems
-================================================
+Denoising diffusion models for geophysical systems
+==================================================
 
-This repository is based on the code of
+This repository is a further development of https://github.com/cerea-daml/ddm-attractor towards large-scale geophysical systems.
+
+If you want to cite 
 
 > Not yet available
 
 --------
 
-This repository represents a python module useable for denoising diffusion 
-models and its application to dynamical systems.
-The repository includes the source code for the module itself and examples with
-toy models.
-The module is programmed for research purpose in an easily extendable modular
-way.
+This repository represents python modules useable for denoising diffusion 
+models and its application to geophysical systems.
+The repository includes the source code for the module itself and examples with toy models, e.g., with the Lorenz 1996 model.
+The module is programmed for research purpose in an easily extendable modular way.
 
-The scripts and module is written in PyTorch [[1]](#1), Pytorch lightning [
-[2]](#2).
+The focus of the denoising diffusion models is on latent diffusion models to enable a large-scale application.
+Additionally, the training schemes have a built-in support for data masks.
+This allows the diffusion models to be applied on data for sea ice and computational fluid dynamics.
+
+The scripts and modules are written in PyTorch [[2]](#2), PyTorch lightning [[3]](#3).
 
 The folder structure is as follows:
 ```
 .
 |-- ddm_dynamical       # The Python source code
+    |-- callbacks       # Common PyTorch lightning callbacks
+    |-- decoder         # Example decoder modules
     |-- dynamical       # Toy models and a Runge-Kutta fourth-order integrator
-    |-- head_param      # Paramterizations defining the head of the neural network
+    |-- encoder         # Example encoder modules
     |-- layers          # Layers for the neural network
     |-- sampler         # Sampler to generate new data
     |-- scheduler       # Noise scheduler
@@ -40,4 +45,6 @@ create a GitHub issue.
 ## References
 <a id="1">[1]</a> https://pytorch.org/
 
-<a id="2">[2]</a> https://www.pytorchlightning.ai/
+<a id="2">[2]</a> https://pytorch.org/
+
+<a id="3">[3]</a> https://www.pytorchlightning.ai/
