@@ -36,7 +36,7 @@ class EvaluateSchedulerCallback(Callback):
         batch_idx: int,
         dataloader_idx: int = 0,
     ) -> None:
-        if trainer.logger is not None:
+        if trainer.logger is not None and batch_idx == 0:
             self.timesteps = self.timesteps.to(batch["data"])
             gamma_t = pl_module.scheduler.get_gamma(self.timesteps)
             alpha_t = torch.sigmoid(-gamma_t).sqrt()
