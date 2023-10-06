@@ -10,6 +10,7 @@
 
 # System modules
 import logging
+from math import log
 from typing import Union, Tuple
 
 # External modules
@@ -33,7 +34,9 @@ class GaussianDecoder(torch.nn.Module):
         super().__init__()
         self.mean = mean
         self.std = std
-        self.logvar = torch.nn.Parameter(torch.zeros(*data_shape))
+        self.logvar = torch.nn.Parameter(
+            torch.ones(*data_shape) * log(std**2)
+        )
         self.eps = eps
 
     def forward(
