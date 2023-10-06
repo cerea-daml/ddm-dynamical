@@ -25,14 +25,16 @@ logger = logging.getLogger(__name__)
 class BaseSampler(torch.nn.Module):
     def __init__(
             self,
-            scheduler: "dyn_ddim.scheduler.noise_scheduler.NoiseScheduler",
+            scheduler: "ddm_dynamical.scheduler.noise_scheduler.NoiseScheduler",
             timesteps: int = 250,
             denoising_model: torch.nn.Module = None,
+            pbar: bool = True
     ):
         super().__init__()
         self.denoising_model = denoising_model
         self.timesteps = timesteps
         self.scheduler = scheduler
+        self.pbar = pbar
 
     def generate_prior_sample(
             self,
@@ -73,8 +75,9 @@ class BaseSampler(torch.nn.Module):
             device=in_tensor.device, dtype=in_tensor.dtype,
             layout=in_tensor.layout
         )[1:n_steps+1]
-        pbar = tqdm(reversed(time_steps), total=n_steps, leave=False)
-        for step in pbar:
+        if self.pbar:
+            time_steps = tqdm(reversed(time_steps), total=n_steps, leave=False)
+        for step in time_steps:
             denoised_tensor = self(
                 denoised_tensor, step, mask=mask, **conditioning
             )
