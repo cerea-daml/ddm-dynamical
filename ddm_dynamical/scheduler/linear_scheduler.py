@@ -21,10 +21,14 @@ main_logger = logging.getLogger(__name__)
 
 
 class LinearScheduler(NoiseScheduler):
-    def __init__(self, gamma_start: float = -5, gamma_end: float = 10):
-        super().__init__()
-        self.gamma_start = gamma_start
-        self.gamma_end = gamma_end
+    def __init__(self, gamma_min: float = -10, gamma_max: float = 10,):
+        super().__init__(gamma_min=gamma_min, gamma_max=gamma_max)
 
-    def get_gamma(self, timestep: torch.Tensor) -> torch.Tensor:
-        return self.gamma_start + (self.gamma_end-self.gamma_start) * timestep
+    def get_normalized_gamma(self, gamma: torch.Tensor) -> torch.Tensor:
+        return gamma / (self.gamma_max-self.gamma_min+self.eps) - self.gamma_min
+
+    def _estimate_gamma(self, timesteps: torch.Tensor) -> torch.Tensor:
+        return self.gamma_min + (self.gamma_max-self.gamma_min) * timesteps
+
+    def forward(self, timesteps: torch.Tensor) -> torch.Tensor:
+        return self._estimate_gamma(timesteps)

@@ -46,26 +46,27 @@ class NNScheduler(NoiseScheduler):
     def __init__(
             self,
             n_features: int = 1024,
-            min_gamma: float = -5,
-            max_gamma: float = 5,
-            normalize: bool = False
+            gamma_min: float = -10,
+            gamma_max: float = 10,
+            normalize=True
     ):
-        super().__init__()
-        self.min_gamma = min_gamma
-        self.max_gamma = max_gamma
-        self.normalize = normalize
+        super().__init__(
+            gamma_min=gamma_min,
+            gamma_max=gamma_max,
+            normalize=normalize
+        )
         self.n_features = n_features
         self.l1 = LinearMonotonic(1, 1)
-        torch.nn.init.constant_(self.l1.weight, max_gamma-min_gamma)
-        torch.nn.init.constant_(self.l1.bias, min_gamma)
+        torch.nn.init.constant_(self.l1.weight, gamma_max-gamma_min)
+        torch.nn.init.constant_(self.l1.bias, gamma_min)
         self.l2 = LinearMonotonic(1, self.n_features)
         torch.nn.init.normal_(self.l2.weight)
         self.activation = torch.nn.Sigmoid()
         self.l3 = LinearMonotonic(self.n_features, 1, bias=False)
         torch.nn.init.normal_(self.l3.weight)
 
-    def forward(self, time_tensor: torch.Tensor) -> torch.Tensor:
-        time_tensor = time_tensor[..., None]
+    def _estimate_gamma(self, timesteps: torch.Tensor) -> torch.Tensor:
+        time_tensor = timesteps[..., None]
         output = self.l1(time_tensor)
         branch = (time_tensor-0.5)*2.
         branch = self.l2(branch)
@@ -73,16 +74,3 @@ class NNScheduler(NoiseScheduler):
         branch = 2*(branch-0.5)
         output += self.l3(branch) / self.n_features
         return output.squeeze(dim=-1)
-
-    def normalize_gamma(self, gamma:  torch.Tensor) -> torch.Tensor:
-        gamma_ends = self(
-            torch.tensor([0., 1.], dtype=gamma.dtype, device=gamma.device)
-        )
-        scale = (self.max_gamma-self.min_gamma)/(gamma_ends[1]-gamma_ends[0])
-        return self.min_gamma + scale * (gamma-gamma_ends[0])
-
-    def get_gamma(self, time_tensor: torch.Tensor) -> torch.Tensor:
-        gamma = self(time_tensor)
-        if self.normalize:
-            gamma = self.normalize_gamma(gamma)
-        return gamma

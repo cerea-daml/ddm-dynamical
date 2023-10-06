@@ -23,16 +23,27 @@ logger = logging.getLogger(__name__)
 
 
 class DDPMScheduler(NoiseScheduler):
-    def __init__(self):
+    def __init__(
+            self,
+            shift: float = 1E-4,
+            scale: float = 10.,
+            gamma_min: float = -10,
+            gamma_max: float = 10,
+            normalize=True
+    ):
         """
         Noise scheduling as proposed by Ho et al. 2020 and
         approximated in Kingma et al. 2021.
         """
-        super().__init__()
-        self.shift = 1E-4
-        self.scale = 10.
+        super().__init__(
+            gamma_min=gamma_min,
+            gamma_max=gamma_max,
+            normalize=normalize
+        )
+        self.shift = shift
+        self.scale = scale
 
-    def get_gamma(self, timestep: torch.Tensor) -> torch.Tensor:
+    def _estimate_gamma(self, timesteps: torch.Tensor) -> torch.Tensor:
         return torch.log(
-            torch.expm1(self.shift + self.scale * timestep.pow(2))
+            torch.expm1(self.shift + self.scale * timesteps.pow(2))
         )
