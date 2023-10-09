@@ -19,6 +19,7 @@ from pytorch_lightning import LightningModule
 import torch
 
 # Internal modules
+from ddm_dynamical import utils
 
 
 logger = logging.getLogger(__name__)
@@ -129,16 +130,6 @@ class VDMDiscreteModule(LightningModule):
         ) / self.timesteps
         return sampled_time
 
-    def masked_average(
-            self,
-            loss_tensor: torch.Tensor,
-            mask: torch.Tensor = None
-    ) -> torch.Tensor:
-        loss_mask = torch.ones_like(loss_tensor)
-        if mask is not None:
-            loss_mask *= mask
-        return (loss_tensor*loss_mask).sum()/loss_mask.sum()
-
     def get_diff_loss(
             self,
             prediction: torch.Tensor,
@@ -207,13 +198,13 @@ class VDMDiscreteModule(LightningModule):
         )
 
         # Estimate losses
-        loss_recon = self.masked_average(
+        loss_recon = utils.masked_average(
             self.get_recon_loss(data, latent, noise), mask
         )
-        loss_diff = self.masked_average(
+        loss_diff = utils.masked_average(
             self.get_diff_loss(prediction, noise, sampled_time), mask
         )
-        loss_prior = self.masked_average(
+        loss_prior = utils.masked_average(
             self.get_prior_loss(latent), mask
         )
         total_loss = loss_recon + loss_diff + loss_prior
@@ -230,7 +221,7 @@ class VDMDiscreteModule(LightningModule):
         # Estimate auxiliary data loss
         state = (noised_latent-var_t.sqrt()*prediction) / (1-var_t).sqrt()
         data_abs_err = (state-data).abs()
-        data_loss = self.masked_average(data_abs_err, mask)
+        data_loss = utils.masked_average(data_abs_err, mask)
         self.log(f'{prefix}/data_loss', data_loss, prog_bar=False,
                  batch_size=batch_size)
         return total_loss
