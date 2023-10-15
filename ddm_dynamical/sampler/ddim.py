@@ -65,8 +65,8 @@ class DDIMSampler(BaseSampler):
     ) -> torch.Tensor:
         # Estimate coefficients
         prev_step = step-1/self.timesteps
-        gamma_t = self.scheduler.get_gamma(step)
-        gamma_s = self.scheduler.get_gamma(step-1/self.timesteps)
+        gamma_t = self.scheduler(step)
+        gamma_s = self.scheduler(step-1/self.timesteps)
         var_t = torch.sigmoid(-gamma_t)
         var_s = torch.sigmoid(-gamma_s)
         alpha_t = (1-var_t).sqrt()

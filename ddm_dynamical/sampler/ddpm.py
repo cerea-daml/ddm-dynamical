@@ -30,8 +30,8 @@ class DDPMSampler(BaseSampler):
     ) -> torch.Tensor:
         # Estimate coefficients from scheduler
         prev_step = step-1/self.timesteps
-        gamma_t = self.scheduler.get_gamma(step)
-        gamma_s = self.scheduler.get_gamma(prev_step)
+        gamma_t = self.scheduler(step)
+        gamma_s = self.scheduler(prev_step)
         var_t = torch.sigmoid(-gamma_t)
         sigma_t = var_t.sqrt()
         alpha_t_sq = 1-var_t

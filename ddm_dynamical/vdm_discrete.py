@@ -136,8 +136,8 @@ class VDMDiscreteModule(LightningModule):
             noise: torch.Tensor,
             sampled_time: torch.Tensor
     ) -> torch.Tensor:
-        gamma_t = self.scheduler.get_gamma(sampled_time)
-        gamma_s = self.scheduler.get_gamma(sampled_time-1/self.timesteps)
+        gamma_t = self.scheduler(sampled_time)
+        gamma_s = self.scheduler(sampled_time-1/self.timesteps)
         weighting = torch.expm1(gamma_t - gamma_s)
         error_noise = (prediction - noise).pow(2)
         loss_diff = 0.5 * self.timesteps * weighting * error_noise
@@ -147,7 +147,7 @@ class VDMDiscreteModule(LightningModule):
             self,
             latent: torch.Tensor,
     ) -> torch.Tensor:
-        gamma_1 = self.scheduler.get_gamma(
+        gamma_1 = self.scheduler(
             torch.ones(1, dtype=latent.dtype, device=latent.device)
         )
         var_1 = torch.sigmoid(gamma_1)
@@ -163,7 +163,7 @@ class VDMDiscreteModule(LightningModule):
             latent: torch.Tensor,
             noise: torch.Tensor
     ) -> torch.Tensor:
-        gamma_0 = self.scheduler.get_gamma(
+        gamma_0 = self.scheduler(
             torch.zeros(1, dtype=data.dtype, device=data.device)
         )
         var_0 = torch.sigmoid(gamma_0)
@@ -186,7 +186,7 @@ class VDMDiscreteModule(LightningModule):
         sampled_time = self.sample_time(data)
 
         # Evaluate scheduler
-        gamma_t = self.scheduler.get_gamma(sampled_time)
+        gamma_t = self.scheduler(sampled_time)
         var_t = torch.sigmoid(gamma_t)
 
         # Estimate prediction

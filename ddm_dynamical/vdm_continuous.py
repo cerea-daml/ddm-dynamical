@@ -105,7 +105,7 @@ class VDMContinuousModule(VDMDiscreteModule):
     ) -> torch.Tensor:
         sampled_time = torch.nn.Parameter(sampled_time)
         weighting = grad(
-            lambda x: self.scheduler.get_gamma(x).sum()
+            lambda x: self.scheduler(x).sum()
         )(sampled_time)
         error_noise = (prediction - noise).pow(2)
         return 0.5 * weighting * error_noise
