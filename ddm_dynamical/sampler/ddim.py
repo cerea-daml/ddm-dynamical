@@ -31,11 +31,13 @@ class DDIMSampler(BaseSampler):
             denoising_model: torch.nn.Module = None,
             ddpm: bool = False,
             eta: float = 0.,
+            pbar: bool = False
     ):
         super().__init__(
             scheduler=scheduler,
             timesteps=timesteps,
-            denoising_model=denoising_model
+            denoising_model=denoising_model,
+            pbar=pbar
         )
         self.ddpm = ddpm
         self.eta = eta
