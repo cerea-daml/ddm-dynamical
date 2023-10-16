@@ -11,12 +11,14 @@
 
 # System modules
 import logging
+from typing import Callable
 
 # External modules
 import torch
 from tqdm.autonotebook import tqdm
 
 # Internal modules
+from .utils import project_to_state
 
 
 logger = logging.getLogger(__name__)
@@ -28,10 +30,15 @@ class BaseSampler(torch.nn.Module):
             scheduler: "ddm_dynamical.scheduler.noise_scheduler.NoiseScheduler",
             timesteps: int = 250,
             denoising_model: torch.nn.Module = None,
-            pbar: bool = True
+            proj_func: Callable = None,
+            pbar: bool = True,
     ):
         super().__init__()
         self.denoising_model = denoising_model
+        if proj_func is None:
+            self.proj_func = project_to_state
+        else:
+            self.proj_func = proj_func
         self.timesteps = timesteps
         self.scheduler = scheduler
         self.pbar = pbar
