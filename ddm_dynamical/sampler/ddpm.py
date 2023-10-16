@@ -55,7 +55,12 @@ class DDPMSampler(BaseSampler):
         prediction = self.denoising_model(
             in_data, time_tensor, mask=mask, **conditioning
         )
-        state = (in_data-sigma_t*prediction) / alpha_t
+        state = self.proj_func(
+            in_data=in_data,
+            prediction=prediction,
+            alpha_t=alpha_t,
+            sigma_t=sigma_t
+        )
 
         if prev_step > 0:
             noise = torch.randn_like(in_data)

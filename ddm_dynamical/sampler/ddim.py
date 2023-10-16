@@ -11,7 +11,7 @@
 
 # System modules
 import logging
-from typing import Union
+from typing import Union, Callable
 
 # External modules
 import torch
@@ -29,6 +29,7 @@ class DDIMSampler(BaseSampler):
             scheduler: "dyn_ddim.scheduler.noise_scheduler.NoiseScheduler",
             timesteps: int = 250,
             denoising_model: torch.nn.Module = None,
+            proj_func: Callable = None,
             ddpm: bool = False,
             eta: float = 0.,
             pbar: bool = False
@@ -37,6 +38,7 @@ class DDIMSampler(BaseSampler):
             scheduler=scheduler,
             timesteps=timesteps,
             denoising_model=denoising_model,
+            proj_func=proj_func,
             pbar=pbar
         )
         self.ddpm = ddpm
@@ -85,7 +87,12 @@ class DDIMSampler(BaseSampler):
         prediction = self.denoising_model(
             in_data, time_tensor, mask=mask, **conditioning
         )
-        state = (in_data-sigma_t*prediction) / alpha_t
+        state = self.proj_func(
+            in_data=in_data,
+            prediction=prediction,
+            alpha_t=alpha_t,
+            sigma_t=sigma_t
+        )
 
         if prev_step > 0:
             noise = torch.randn_like(in_data)
