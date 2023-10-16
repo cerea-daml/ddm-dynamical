@@ -88,10 +88,13 @@ class DDIMSampler(BaseSampler):
             in_data, time_tensor, mask=mask, **conditioning
         )
         state = self.proj_func(
-            in_data=in_data,
             prediction=prediction,
+            in_data=in_data,
             alpha_t=alpha_t,
-            sigma_t=sigma_t
+            sigma_t=sigma_t,
+            time_tensor=time_tensor,
+            mask=mask,
+            **conditioning
         )
 
         if prev_step > 0:

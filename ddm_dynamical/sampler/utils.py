@@ -20,9 +20,12 @@ main_logger = logging.getLogger(__name__)
 
 
 def project_to_state(
-        in_data: torch.Tensor,
         prediction: torch.Tensor,
-        alpha_t: torch.Tensor = 1.,
-        sigma_t: torch.Tensor = 1.
+        in_data: torch.Tensor,
+        alpha_t: torch.Tensor,
+        sigma_t: torch.Tensor,
+        time_tensor: torch.Tensor,
+        mask: torch.Tensor = None,
+        **conditioning
 ) -> torch.Tensor:
     return (in_data-sigma_t*prediction) / alpha_t
