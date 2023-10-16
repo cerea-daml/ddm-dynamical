@@ -69,8 +69,8 @@ class DDIMSampler(BaseSampler):
         prev_step = step-1/self.timesteps
         gamma_t = self.scheduler(step)
         gamma_s = self.scheduler(step-1/self.timesteps)
-        var_t = torch.sigmoid(-gamma_t)
-        var_s = torch.sigmoid(-gamma_s)
+        var_t = torch.sigmoid(gamma_t)
+        var_s = torch.sigmoid(gamma_s)
         alpha_t = (1-var_t).sqrt()
         alpha_s = (1-var_s).sqrt()
         sigma_t = var_t.sqrt()

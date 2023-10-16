@@ -32,10 +32,10 @@ class DDPMSampler(BaseSampler):
         prev_step = step-1/self.timesteps
         gamma_t = self.scheduler(step)
         gamma_s = self.scheduler(prev_step)
-        var_t = torch.sigmoid(-gamma_t)
+        var_t = torch.sigmoid(gamma_t)
         sigma_t = var_t.sqrt()
         alpha_t_sq = 1-var_t
-        alpha_s_sq = torch.sigmoid(gamma_s)
+        alpha_s_sq = torch.sigmoid(-gamma_s)
         alpha_dash_t_sq = alpha_t_sq / alpha_s_sq
         alpha_t = alpha_t_sq.sqrt()
         alpha_s = alpha_s_sq.sqrt()
