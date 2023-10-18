@@ -49,5 +49,5 @@ class NoiseScheduler(torch.nn.Module):
         gamma = self._estimate_gamma(timesteps)
         if self.normalize:
             gamma = self.gamma_min + (self.gamma_max-self.gamma_min) * \
-                    self.get_normalized_gamma(gamma)
+                    self.normalize_gamma(gamma)
         return gamma
