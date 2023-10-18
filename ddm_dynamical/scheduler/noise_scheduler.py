@@ -38,7 +38,7 @@ class NoiseScheduler(torch.nn.Module):
         pass
 
     def normalize_gamma(self, gamma: torch.Tensor) -> torch.Tensor:
-        gamma_0, gamma_1 = self(
+        gamma_0, gamma_1 = self._estimate_gamma(
             torch.tensor(
                 [0., 1.], dtype=gamma.dtype, device=gamma.device
             )
