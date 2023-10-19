@@ -48,7 +48,7 @@ class NoiseScheduler(torch.nn.Module):
 
     def get_gamma_deriv(self, timesteps: torch.Tensor) -> torch.Tensor:
         return grad(
-            lambda x: self.scheduler(x).sum()
+            lambda x: self(x).sum()
         )(timesteps)
 
     def update(
