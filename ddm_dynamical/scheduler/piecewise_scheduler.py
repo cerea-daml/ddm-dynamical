@@ -69,14 +69,12 @@ class PiecewiseScheduler(NoiseScheduler):
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         t_left = self.support_t[idx_left]
         val_left = self.support_deriv[idx_left]
-        if idx_left+1 == len(self.support_t):
-            t_right = t_left + self.dt
-            val_right = val_left
-        else:
-            t_right = self.support_t[idx_left+1]
-            val_right = self.support_deriv[idx_left+1]
-        weight_left = (t_right - timesteps) / self.dt
-        weight_right = (timesteps - t_left) / self.dt
+        idx_right = (idx_left+1).clamp(min=0, max=len(self.support_t)-1)
+        t_right = self.support_t[idx_right] + 1E-9
+        val_right = self.support_deriv[idx_right]
+        total_dist = t_right-t_left
+        weight_left = (t_right - timesteps) / total_dist
+        weight_right = (timesteps - t_left) / total_dist
         deriv = weight_left * val_left + weight_right * val_right
         return deriv, weight_left, weight_right
 
