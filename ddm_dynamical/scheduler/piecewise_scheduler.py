@@ -44,13 +44,17 @@ class PiecewiseScheduler(NoiseScheduler):
         self.dt = 1./(n_support-1)
         self.lr = lr
 
+    @property
+    def support_deriv(self) -> torch.Tensor:
+        return 1/self.support_values
+
     def interp_deriv(
             self,
             idx_right: torch.Tensor,
             timesteps: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        val_left = self.support_values[idx_right-1]
-        val_right = self.support_values[idx_right]
+        val_left = self.support_deriv[idx_right-1]
+        val_right = self.support_deriv[idx_right]
         t_left = self.support_t[idx_right-1]
         t_right = self.support_t[idx_right]
         weight_left = (t_right - timesteps) / self.dt
@@ -67,16 +71,16 @@ class PiecewiseScheduler(NoiseScheduler):
         deriv, weight_left, weight_right = self.interp_deriv(
             idx_right, timesteps
         )
-        diff = deriv-target
+        diff = 1/deriv-target
         self.support_values[idx_right-1] -= self.lr * weight_left * diff
         self.support_values[idx_right] -= self.lr * weight_right * diff
 
     def normalize_gamma(self, gamma: torch.Tensor) -> torch.Tensor:
-        return gamma / torch.trapezoid(self.support_values, self.support_t)
+        return gamma / torch.trapezoid(self.support_deriv, self.support_t)
 
     def get_gamma_deriv(self, timesteps: torch.Tensor) -> torch.Tensor:
         idx_right = torch.searchsorted(self.support_t, timesteps)
-        return 1/self.interp_deriv(
+        return self.interp_deriv(
             idx_right, timesteps
         )[0]
 
@@ -84,12 +88,12 @@ class PiecewiseScheduler(NoiseScheduler):
         idx_right = torch.searchsorted(self.support_t, timesteps)
         integrals = torch.cat((
             torch.zeros(1, device=self.support_t.device),
-            torch.cumulative_trapezoid(1/self.support_values, self.support_t)
+            torch.cumulative_trapezoid(self.support_deriv, self.support_t)
         ), dim=0)
         integrals_left = integrals[idx_right-1]
         dt = timesteps-self.support_t[idx_right-1]
         interp_value = self.get_gamma_deriv(timesteps)
         gamma = integrals_left + (
-                interp_value + 1/self.support_values[idx_right-1]
+                interp_value + self.support_deriv[idx_right-1]
         ) * 0.5 * dt
         return gamma
