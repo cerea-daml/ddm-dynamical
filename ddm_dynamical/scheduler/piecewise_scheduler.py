@@ -64,17 +64,17 @@ class PiecewiseScheduler(NoiseScheduler):
 
     def interp_deriv(
             self,
-            idx_right: torch.Tensor,
+            idx_left: torch.Tensor,
             timesteps: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        t_left = self.support_t[idx_right-1]
-        val_left = self.support_deriv[idx_right-1]
-        try:
-            t_right = self.support_t[idx_right]
-            val_right = self.support_deriv[idx_right]
-        except IndexError:
-            t_right = t_left+self.dt
+        t_left = self.support_t[idx_left]
+        val_left = self.support_deriv[idx_left]
+        if idx_left+1 == len(self.support_t):
+            t_right = t_left + self.dt
             val_right = val_left
+        else:
+            t_right = self.support_t[idx_left+1]
+            val_right = self.support_deriv[idx_left+1]
         weight_left = (t_right - timesteps) / self.dt
         weight_right = (timesteps - t_left) / self.dt
         deriv = weight_left * val_left + weight_right * val_right
@@ -85,31 +85,31 @@ class PiecewiseScheduler(NoiseScheduler):
             timesteps: torch.Tensor,
             target: torch.Tensor
     ) -> None:
-        idx_right = torch.searchsorted(self.support_t, timesteps, right=True)
+        idx_left = torch.searchsorted(self.support_t, timesteps, right=True) - 1
         deriv, weight_left, weight_right = self.interp_deriv(
-            idx_right, timesteps
+            idx_left, timesteps
         )
         diff = 1/deriv-target
-        self.support_values[idx_right-1] -= self.lr * weight_left * diff
-        self.support_values[idx_right] -= self.lr * weight_right * diff
+        self.support_values[idx_left] -= self.lr * weight_left * diff
+        self.support_values[idx_left+1] -= self.lr * weight_right * diff
         self.update_integral = True
 
     def normalize_gamma(self, gamma: torch.Tensor) -> torch.Tensor:
         return gamma / self.integral[-1]
 
     def get_gamma_deriv(self, timesteps: torch.Tensor) -> torch.Tensor:
-        idx_right = torch.searchsorted(self.support_t, timesteps, right=True)
+        idx_left = torch.searchsorted(self.support_t, timesteps, right=True) - 1
         return self.interp_deriv(
-            idx_right, timesteps
+            idx_left, timesteps
         )[0]
 
     def _estimate_gamma(self, timesteps: torch.Tensor) -> torch.Tensor:
-        idx_right = torch.searchsorted(self.support_t, timesteps, right=True)
+        idx_left = torch.searchsorted(self.support_t, timesteps, right=True) - 1
 
-        integrals_left = self.integral[idx_right-1]
-        dt = timesteps-self.support_t[idx_right-1]
+        integrals_left = self.integral[idx_left]
+        dt = timesteps-self.support_t[idx_left]
         interp_value = self.get_gamma_deriv(timesteps)
         gamma = integrals_left + (
-                interp_value + self.support_deriv[idx_right-1]
+                interp_value + self.support_deriv[idx_left]
         ) * 0.5 * dt
         return gamma
