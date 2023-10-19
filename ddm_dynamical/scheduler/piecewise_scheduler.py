@@ -62,7 +62,7 @@ class PiecewiseScheduler(NoiseScheduler):
             self.update_integral = False
         return self.integral_deriv
 
-    def get_left(self, timesteps: torch.TEnsor) -> torch.Tensor:
+    def get_left(self, timesteps: torch.Tensor) -> torch.Tensor:
         return (
             torch.searchsorted(self.support_t, timesteps, right=True)-1
         ).clamp(min=0, max=len(self.support_t)-2)
