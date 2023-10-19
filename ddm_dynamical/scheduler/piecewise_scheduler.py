@@ -41,8 +41,22 @@ class PiecewiseScheduler(NoiseScheduler):
         self.register_buffer(
             "support_values", torch.ones(n_support)
         )
+        self.register_buffer(
+            "integral_deriv", torch.zeros(n_support)
+        )
         self.dt = 1./(n_support-1)
         self.lr = lr
+        self.updated = False
+
+    @property
+    def integral(self) -> torch.Tensor:
+        if self.updated:
+            self.integral_deriv = torch.cat((
+                torch.zeros(1, device=self.support_t.device),
+                torch.cumulative_trapezoid(self.support_deriv, self.support_t)
+            ), dim=0)
+            self.updated = False
+        return self.integral_deriv
 
     @property
     def support_deriv(self) -> torch.Tensor:
@@ -74,9 +88,10 @@ class PiecewiseScheduler(NoiseScheduler):
         diff = 1/deriv-target
         self.support_values[idx_right-1] -= self.lr * weight_left * diff
         self.support_values[idx_right] -= self.lr * weight_right * diff
+        self.updated = True
 
     def normalize_gamma(self, gamma: torch.Tensor) -> torch.Tensor:
-        return gamma / torch.trapezoid(self.support_deriv, self.support_t)
+        return gamma / self.integral[-1]
 
     def get_gamma_deriv(self, timesteps: torch.Tensor) -> torch.Tensor:
         idx_right = torch.searchsorted(self.support_t, timesteps, right=True)
@@ -86,11 +101,8 @@ class PiecewiseScheduler(NoiseScheduler):
 
     def _estimate_gamma(self, timesteps: torch.Tensor) -> torch.Tensor:
         idx_right = torch.searchsorted(self.support_t, timesteps, right=True)
-        integrals = torch.cat((
-            torch.zeros(1, device=self.support_t.device),
-            torch.cumulative_trapezoid(self.support_deriv, self.support_t)
-        ), dim=0)
-        integrals_left = integrals[idx_right-1]
+
+        integrals_left = self.integral[idx_right-1]
         dt = timesteps-self.support_t[idx_right-1]
         interp_value = self.get_gamma_deriv(timesteps)
         gamma = integrals_left + (
