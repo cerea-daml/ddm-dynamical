@@ -14,6 +14,7 @@ import logging
 
 # External modules
 import torch
+from torch.func import grad
 
 # Internal modules
 
@@ -44,6 +45,11 @@ class NoiseScheduler(torch.nn.Module):
             )
         )
         return (gamma-gamma_0) / (gamma_1-gamma_0+self.eps)
+
+    def get_gamma_deriv(self, timesteps: torch.Tensor) -> torch.Tensor:
+        return grad(
+            lambda x: self.scheduler(x).sum()
+        )(timesteps)
 
     def forward(self, timesteps: torch.Tensor) -> torch.Tensor:
         gamma = self._estimate_gamma(timesteps)
