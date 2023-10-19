@@ -51,6 +51,13 @@ class NoiseScheduler(torch.nn.Module):
             lambda x: self.scheduler(x).sum()
         )(timesteps)
 
+    def update(
+            self,
+            timesteps: torch.Tensor,
+            target: torch.Tensor
+    ) -> None:
+        pass
+
     def forward(self, timesteps: torch.Tensor) -> torch.Tensor:
         gamma = self._estimate_gamma(timesteps)
         if self.normalize:
