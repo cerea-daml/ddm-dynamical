@@ -46,7 +46,7 @@ class PiecewiseScheduler(NoiseScheduler):
         )
         self.dt = 1./(n_support-1)
         self.lr = lr
-        self.updated = False
+        self.updated = True
 
     @property
     def integral(self) -> torch.Tensor:
