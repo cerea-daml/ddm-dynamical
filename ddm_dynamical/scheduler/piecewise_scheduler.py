@@ -39,7 +39,7 @@ class PiecewiseScheduler(NoiseScheduler):
             "support_t", torch.linspace(0, 1, n_support)
         )
         self.register_buffer(
-            "support_values", torch.ones(n_support)
+            "support_density", torch.ones(n_support)
         )
         self.register_buffer(
             "integral_deriv", torch.zeros(n_support)
@@ -47,6 +47,10 @@ class PiecewiseScheduler(NoiseScheduler):
         self.dt = 1./(n_support-1)
         self.lr = lr
         self.update_integral = True
+
+    @property
+    def support_deriv(self) -> torch.Tensor:
+        return 1/self.support_density
 
     @property
     def integral(self) -> torch.Tensor:
@@ -58,56 +62,53 @@ class PiecewiseScheduler(NoiseScheduler):
             self.update_integral = False
         return self.integral_deriv
 
-    @property
-    def support_deriv(self) -> torch.Tensor:
-        return 1/self.support_values
+    def get_left(self, timesteps: torch.TEnsor) -> torch.Tensor:
+        return (
+            torch.searchsorted(self.support_t, timesteps, right=True)-1
+        ).clamp(min=0, max=len(self.support_t)-2)
 
-    def interp_deriv(
+    def interp_density(
             self,
             idx_left: torch.Tensor,
             timesteps: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        t_left = self.support_t[idx_left]
-        val_left = self.support_deriv[idx_left]
-        idx_right = (idx_left+1).clamp(min=0, max=len(self.support_t)-1)
-        t_right = self.support_t[idx_right] + 1E-9
-        val_right = self.support_deriv[idx_right]
-        total_dist = t_right-t_left
-        weight_left = (t_right - timesteps) / total_dist
-        weight_right = (timesteps - t_left) / total_dist
-        deriv = weight_left * val_left + weight_right * val_right
-        return deriv, weight_left, weight_right
+    ) -> torch.Tensor:
+        scale = (self.support_density[1:]-self.support_density[:-1])/self.dt
+        shift = self.support_density[:-1]-self.support_t[:-1] * scale
+        density = timesteps * scale[idx_left] + shift[idx_left]
+        return density
 
     def update(
             self,
             timesteps: torch.Tensor,
             target: torch.Tensor
     ) -> None:
-        idx_left = torch.searchsorted(self.support_t, timesteps, right=True) - 1
-        deriv, weight_left, weight_right = self.interp_deriv(
+        idx_left = self.get_left(timesteps)
+        weight_right = (timesteps - self.support_t[idx_left]) / self.dt
+        weight_left = 1-weight_right
+        density = self.interp_density(
             idx_left, timesteps
         )
-        diff = 1/deriv-target
-        self.support_values[idx_left] -= self.lr * weight_left * diff
-        self.support_values[idx_left+1] -= self.lr * weight_right * diff
+        diff = density-target
+        self.support_density[idx_left] -= self.lr * weight_left * diff
+        self.support_density[idx_left+1] -= self.lr * weight_right * diff
         self.update_integral = True
 
     def normalize_gamma(self, gamma: torch.Tensor) -> torch.Tensor:
         return gamma / self.integral[-1]
 
     def get_gamma_deriv(self, timesteps: torch.Tensor) -> torch.Tensor:
-        idx_left = torch.searchsorted(self.support_t, timesteps, right=True) - 1
-        return self.interp_deriv(
+        idx_left = self.get_left(timesteps)
+        return 1 / self.interp_density(
             idx_left, timesteps
-        )[0]
+        )
 
     def _estimate_gamma(self, timesteps: torch.Tensor) -> torch.Tensor:
-        idx_left = torch.searchsorted(self.support_t, timesteps, right=True) - 1
-
+        idx_left = self.get_left(timesteps)
         integrals_left = self.integral[idx_left]
         dt = timesteps-self.support_t[idx_left]
-        interp_value = self.get_gamma_deriv(timesteps)
-        gamma = integrals_left + (
-                interp_value + self.support_deriv[idx_left]
-        ) * 0.5 * dt
+        mid_point = (
+            self.support_deriv[idx_left] +
+            1/self.interp_density(idx_left, timesteps)
+        ) * 0.5
+        gamma = integrals_left + mid_point * dt
         return gamma
