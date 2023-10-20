@@ -44,6 +44,6 @@ class DDPMScheduler(NoiseScheduler):
         self.scale = scale
 
     def _estimate_gamma(self, timesteps: torch.Tensor) -> torch.Tensor:
-        return torch.log(
+        return -torch.log(
             torch.expm1(self.shift + self.scale * timesteps.pow(2))
         )
