@@ -33,8 +33,15 @@ class NoiseScheduler(torch.nn.Module):
         self.gamma_max = gamma_max
         self.eps = 1E-9
 
-    def get_normalized_gamma(self, timesteps: torch.Tensor) -> torch.Tensor:
+    def _estimate_gamma(self, timesteps: torch.Tensor) -> torch.Tensor:
         pass
+
+    def get_normalized_gamma(self, timesteps: torch.Tensor) -> torch.Tensor:
+        limits = self._estimate_gamma(
+            torch.arange(2, device=timesteps.device).pow(2)
+        )
+        gamma = self._estimate_gamma(timesteps)
+        return (gamma-limits[1]) / (limits[0]-limits[1])
 
     def denormalize_gamma(self, gamma: torch.Tensor) -> torch.Tensor:
         return self.gamma_min + (self.gamma_max-self.gamma_min) * gamma

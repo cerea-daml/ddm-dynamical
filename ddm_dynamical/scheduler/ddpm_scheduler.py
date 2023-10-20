@@ -29,7 +29,6 @@ class DDPMScheduler(NoiseScheduler):
             scale: float = 10.,
             gamma_min: float = -10,
             gamma_max: float = 10,
-            normalize=True
     ):
         """
         Noise scheduling as proposed by Ho et al. 2020 and
@@ -38,7 +37,6 @@ class DDPMScheduler(NoiseScheduler):
         super().__init__(
             gamma_min=gamma_min,
             gamma_max=gamma_max,
-            normalize=normalize
         )
         self.shift = shift
         self.scale = scale

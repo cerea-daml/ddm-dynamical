@@ -48,12 +48,10 @@ class NNScheduler(NoiseScheduler):
             n_features: int = 1024,
             gamma_min: float = -10,
             gamma_max: float = 10,
-            normalize=True
     ):
         super().__init__(
             gamma_min=gamma_min,
             gamma_max=gamma_max,
-            normalize=normalize
         )
         self.n_features = n_features
         self.l1 = LinearMonotonic(1, 1)
