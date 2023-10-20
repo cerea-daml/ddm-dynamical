@@ -11,7 +11,7 @@
 
 # System modules
 import logging
-from typing import Union, Callable
+from typing import Callable
 
 # External modules
 import torch
@@ -28,7 +28,7 @@ class DDIMSampler(BaseSampler):
             self,
             scheduler: "dyn_ddim.scheduler.noise_scheduler.NoiseScheduler",
             timesteps: int = 250,
-            denoising_model: torch.nn.Module = None,
+            network: torch.nn.Module = None,
             proj_func: Callable = None,
             ddpm: bool = False,
             eta: float = 0.,
@@ -37,7 +37,7 @@ class DDIMSampler(BaseSampler):
         super().__init__(
             scheduler=scheduler,
             timesteps=timesteps,
-            denoising_model=denoising_model,
+            network=network,
             proj_func=proj_func,
             pbar=pbar
         )
@@ -69,10 +69,11 @@ class DDIMSampler(BaseSampler):
     ) -> torch.Tensor:
         # Estimate coefficients
         prev_step = step-1/self.timesteps
-        gamma_t = self.scheduler(step)
+        norm_gamma_t = self.scheduler.get_normalized_gamma(step)
+        gamma_t = self.scheduler.denormalize_gamma(norm_gamma_t)
         gamma_s = self.scheduler(step-1/self.timesteps)
-        var_t = torch.sigmoid(gamma_t)
-        var_s = torch.sigmoid(gamma_s)
+        var_t = torch.sigmoid(-gamma_t)
+        var_s = torch.sigmoid(-gamma_s)
         alpha_t = (1-var_t).sqrt()
         alpha_s = (1-var_s).sqrt()
         sigma_t = var_t.sqrt()
@@ -84,8 +85,8 @@ class DDIMSampler(BaseSampler):
         time_tensor = torch.ones(
             in_data.size(0), 1, device=in_data.device, dtype=in_data.dtype
         ) * step
-        prediction = self.denoising_model(
-            in_data, time_tensor, mask=mask, **conditioning
+        prediction = self.network(
+            in_data, norm_gamma_t, mask=mask, **conditioning
         )
         state = self.proj_func(
             prediction=prediction,

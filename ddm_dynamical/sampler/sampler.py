@@ -29,12 +29,12 @@ class BaseSampler(torch.nn.Module):
             self,
             scheduler: "ddm_dynamical.scheduler.noise_scheduler.NoiseScheduler",
             timesteps: int = 250,
-            denoising_model: torch.nn.Module = None,
+            network: torch.nn.Module = None,
             proj_func: Callable = None,
             pbar: bool = True,
     ):
         super().__init__()
-        self.denoising_model = denoising_model
+        self.network = network
         if proj_func is None:
             self.proj_func = project_to_state
         else:
@@ -49,7 +49,7 @@ class BaseSampler(torch.nn.Module):
     ) -> torch.Tensor:
         if not isinstance(sample_shape, torch.Size):
             sample_shape = torch.Size(sample_shape)
-        template_tensor = next(self.denoising_model.parameters())
+        template_tensor = next(self.network.parameters())
         prior_sample = torch.randn(
             sample_shape, device=template_tensor.device,
             dtype=template_tensor.dtype, layout=template_tensor.layout
