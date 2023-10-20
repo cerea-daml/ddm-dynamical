@@ -28,7 +28,7 @@ class DDIMSampler(BaseSampler):
             self,
             scheduler: "dyn_ddim.scheduler.noise_scheduler.NoiseScheduler",
             timesteps: int = 250,
-            network: torch.nn.Module = None,
+            denoising_network: torch.nn.Module = None,
             proj_func: Callable = None,
             ddpm: bool = False,
             eta: float = 0.,
@@ -37,7 +37,7 @@ class DDIMSampler(BaseSampler):
         super().__init__(
             scheduler=scheduler,
             timesteps=timesteps,
-            network=network,
+            denoising_network=denoising_network,
             proj_func=proj_func,
             pbar=pbar
         )
