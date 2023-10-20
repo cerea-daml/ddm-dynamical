@@ -164,8 +164,8 @@ class UnconditionalModule(LightningModule):
         gamma_0 = self.scheduler(
             torch.zeros(1, dtype=data.dtype, device=data.device)
         )
-        var_0 = torch.sigmoid(-gamma_0)
-        x_hat = (1-var_0).sqrt() * latent + var_0.sqrt() * noise
+        alpha_0 = torch.sigmoid(-gamma_0)
+        x_hat = alpha_0.sqrt() * latent + (1-alpha_0).sqrt() * noise
         log_likelihood = self.decoder.log_likelihood(x_hat, data)
         return -log_likelihood
 
