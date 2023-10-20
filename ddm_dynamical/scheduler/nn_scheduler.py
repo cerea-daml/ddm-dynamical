@@ -64,13 +64,14 @@ class NNScheduler(NoiseScheduler):
         self.activation = torch.nn.Sigmoid()
         self.l3 = LinearMonotonic(self.n_features, 1, bias=False)
         torch.nn.init.normal_(self.l3.weight)
+        self.branch_factor = torch.nn.Parameter(torch.ones(1)*1E-6)
 
     def _estimate_gamma(self, timesteps: torch.Tensor) -> torch.Tensor:
-        time_tensor = timesteps[..., None]
+        time_tensor = 1-timesteps[..., None]
         output = self.l1(time_tensor)
         branch = (time_tensor-0.5)*2.
         branch = self.l2(branch)
         branch = self.activation(branch)
         branch = 2*(branch-0.5)
-        output += self.l3(branch) / self.n_features
+        output += self.l3(branch) / self.n_features * self.branch_factor
         return output.squeeze(dim=-1)
