@@ -19,7 +19,7 @@ from ddm_dynamical.encoder import GaussianEncoder
 from ddm_dynamical.decoder import GaussianDecoder
 from ddm_dynamical.sampler import DDIMSampler
 from ddm_dynamical.scheduler import NNScheduler
-from ddm_dynamical.vdm_continuous import VDMContinuousModule
+from ddm_dynamical.unconditional import UnconditionalModule
 
 # Internal modules
 from networks import UNeXt
@@ -39,7 +39,7 @@ def train_model():
     encoder = GaussianEncoder()
     decoder = GaussianDecoder()
     scheduler = NNScheduler()
-    model = VDMContinuousModule(
+    model = UnconditionalModule(
         denoising_network=denoising_network,
         encoder=encoder,
         decoder=decoder,
@@ -47,7 +47,7 @@ def train_model():
         lr=3E-4,
         sampler=DDIMSampler(
             scheduler=scheduler,
-            denoising_model=denoising_network,
+            network=denoising_network,
             timesteps=100
         )
     )
