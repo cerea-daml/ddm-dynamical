@@ -68,7 +68,7 @@ class UnconditionalModule(LightningModule):
         )
 
     def forward(
-            self, in_tensor: torch.Tensor, time_tensor: torch.Tensor,
+            self, in_tensor: torch.Tensor, normalized_gamma: torch.Tensor,
             mask: torch.Tensor = None, **conditioning: torch.Tensor
     ):
         """
@@ -78,8 +78,8 @@ class UnconditionalModule(LightningModule):
         ----------
         in_tensor : torch.Tensor
             The noised input for the neural network.
-        time_tensor : torch.Tensor
-            The continuous input time [0, 1].
+        normalized_gamma : torch.Tensor
+            The log signal to noise ratio, normalized to [1, 0].
         mask : torch.Tensor, default = None
             The mask [0, 1] indicating which values are valid. Default is None
             for cases where the neural network shouldn't be masked.
@@ -94,7 +94,7 @@ class UnconditionalModule(LightningModule):
             The predicted noise.
         """
         return self.denoising_network(
-            in_tensor, time_tensor, mask, **conditioning
+            in_tensor, normalized_gamma, mask, **conditioning
         )
 
     def sample_time(
@@ -147,7 +147,7 @@ class UnconditionalModule(LightningModule):
         gamma_1 = self.scheduler(
             torch.ones(1, dtype=latent.dtype, device=latent.device)
         )
-        var_1 = torch.sigmoid(gamma_1)
+        var_1 = torch.sigmoid(-gamma_1)
         loss_latent = 0.5 * (
                 (1-var_1) * torch.square(latent)
                 + var_1 - torch.log(var_1) - 1.
@@ -163,7 +163,7 @@ class UnconditionalModule(LightningModule):
         gamma_0 = self.scheduler(
             torch.zeros(1, dtype=data.dtype, device=data.device)
         )
-        var_0 = torch.sigmoid(gamma_0)
+        var_0 = torch.sigmoid(-gamma_0)
         x_hat = (1-var_0).sqrt() * latent + var_0.sqrt() * noise
         log_likelihood = self.decoder.log_likelihood(x_hat, data)
         return -log_likelihood
@@ -183,14 +183,15 @@ class UnconditionalModule(LightningModule):
         sampled_time = self.sample_time(data)
 
         # Evaluate scheduler
-        gamma_t = self.scheduler(sampled_time)
-        var_t = torch.sigmoid(gamma_t)
+        norm_gamma_t = self.scheduler.get_normalized_gamma(sampled_time)
+        gamma_t = self.scheduler.denormalize_gamma(norm_gamma_t)
+        var_t = torch.sigmoid(-gamma_t)
 
         # Estimate prediction
         latent = self.encoder(data)
         noised_latent = (1 - var_t).sqrt() * latent + var_t.sqrt() * noise
         prediction = self.denoising_network(
-            noised_latent, time_tensor=sampled_time.view(-1, 1), mask=mask,
+            noised_latent, normalized_gamma=norm_gamma_t.view(-1, 1), mask=mask,
             **batch
         )
 
