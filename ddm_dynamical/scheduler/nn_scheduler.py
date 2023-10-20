@@ -65,7 +65,7 @@ class NNScheduler(NoiseScheduler):
         self.branch_factor = torch.nn.Parameter(torch.ones(1)*1E-6)
 
     def _estimate_gamma(self, timesteps: torch.Tensor) -> torch.Tensor:
-        time_tensor = 1-timesteps[..., None]
+        time_tensor = 1.-timesteps[..., None]
         output = self.l1(time_tensor)
         branch = (time_tensor-0.5)*2.
         branch = self.l2(branch)
