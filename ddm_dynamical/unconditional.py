@@ -25,14 +25,13 @@ from ddm_dynamical import utils
 logger = logging.getLogger(__name__)
 
 
-class VDMDiscreteModule(LightningModule):
+class UnconditionalModule(LightningModule):
     def __init__(
             self,
             denoising_network: torch.nn.Module,
             encoder: torch.nn.Module,
             decoder: torch.nn.Module,
             scheduler: "ddm_dynamical.scheduler.noise_scheduler.NoiseScheduler",
-            timesteps: int = 1000,
             lr: float = 1E-3,
             weight_decay: float = None,
             sampler: "ddm_dynamical.sampler.sampler.BaseSampler" = None
@@ -50,15 +49,12 @@ class VDMDiscreteModule(LightningModule):
         scheduler : ddm_dynamical.scheduler.noise_scheduler.NoiseScheduler
             This noise scheduler defines the signal to noise ratio for the time
             steps during training.
-        timesteps : int, default = 1000
-            The number of time steps used during training.
         lr : float, default = 1E-3
             The learning rate during training.
         sampler : {ddm_dynamical.sampler.sampler.BaseSampler, None}, default = None
             The sampler defines the sampling process during the prediction step.
         """
         super().__init__()
-        self.timesteps = timesteps
         self.scheduler = scheduler
         self.denoising_network = denoising_network
         self.encoder = encoder
@@ -106,7 +102,7 @@ class VDMDiscreteModule(LightningModule):
             template_tensor: torch.Tensor
     ) -> torch.Tensor:
         """
-        Samples time indices as long tensor between [1, timesteps]/timesteps.
+        Samples time indices as tensor between [0, 1].
 
         Parameters
         ----------
@@ -123,25 +119,26 @@ class VDMDiscreteModule(LightningModule):
         time_shape = torch.Size(
             [template_tensor.size(0)] + [1, ] * (template_tensor.ndim-1)
         )
-        sampled_time = torch.randint(
-            1, self.timesteps+1, time_shape,
-            dtype=template_tensor.dtype,
-            device=template_tensor.device
-        ) / self.timesteps
+        time_shift = torch.randn(
+            1, dtype=template_tensor.dtype, device=template_tensor.device
+        )
+        sampled_time = torch.linspace(
+            0, 1, template_tensor.size(0),
+            dtype=template_tensor.dtype, device=template_tensor.device
+        )
+        sampled_time = (time_shift+sampled_time) % 1
+        sampled_time = sampled_time.reshape(time_shape)
         return sampled_time
 
     def get_diff_loss(
             self,
             prediction: torch.Tensor,
             noise: torch.Tensor,
-            sampled_time: torch.Tensor
+            sampled_time: torch.Tensor,
     ) -> torch.Tensor:
-        gamma_t = self.scheduler(sampled_time)
-        gamma_s = self.scheduler(sampled_time-1/self.timesteps)
-        weighting = torch.expm1(gamma_t - gamma_s)
+        weighting = self.scheduler.get_gamma_deriv(sampled_time)
         error_noise = (prediction - noise).pow(2)
-        loss_diff = 0.5 * self.timesteps * weighting * error_noise
-        return loss_diff
+        return 0.5 * weighting * error_noise
 
     def get_prior_loss(
             self,
