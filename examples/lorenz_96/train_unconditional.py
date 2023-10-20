@@ -18,7 +18,7 @@ from data_modules import UnconditionalStateDataModule
 from ddm_dynamical.encoder import GaussianEncoder
 from ddm_dynamical.decoder import GaussianDecoder
 from ddm_dynamical.sampler import DDIMSampler
-from ddm_dynamical.scheduler import NNScheduler, PiecewiseScheduler
+from ddm_dynamical.scheduler import *
 from ddm_dynamical.unconditional import UnconditionalModule
 
 # Internal modules
@@ -57,7 +57,7 @@ def train_model():
         max_epochs=200,
         benchmark=False,
         deterministic=True,
-        accelerator="cpu"
+        accelerator="auto"
     )
     trainer.fit(model=model, datamodule=data_module)
 
