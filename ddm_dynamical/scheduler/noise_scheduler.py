@@ -61,6 +61,6 @@ class NoiseScheduler(torch.nn.Module):
     def forward(self, timesteps: torch.Tensor) -> torch.Tensor:
         gamma = self._estimate_gamma(timesteps)
         if self.normalize:
-            gamma = self.gamma_max + (self.gamma_min-self.gamma_max) * \
+            gamma = self.gamma_min + (self.gamma_max-self.gamma_min) * \
                     self.normalize_gamma(gamma)
         return gamma
