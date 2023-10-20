@@ -94,7 +94,8 @@ class UnconditionalModule(LightningModule):
             The predicted noise.
         """
         return self.denoising_network(
-            in_tensor, normalized_gamma, mask, **conditioning
+            in_tensor, normalized_gamma=normalized_gamma, mask=mask,
+            **conditioning
         )
 
     def sample_time(
@@ -273,9 +274,13 @@ class UnconditionalModule(LightningModule):
                 betas=(0.9, 0.99)
             )
         else:
-            diffusion_params = list(self.denoising_network.parameters())
-            other_params = list(self.scheduler.parameters()) + \
-                           list(self.decoder.parameters())
+            diffusion_params = list(
+                self.denoising_network.parameters()
+            ) + list(
+                self.encoder.parameters()
+            ) + list(
+                self.decoder.parameters()
+            )
             optimizer = torch.optim.AdamW([
                 dict(
                     params=diffusion_params,
@@ -284,8 +289,8 @@ class UnconditionalModule(LightningModule):
                     weight_decay=self.weight_decay
                 ),
                 dict(
-                    params=other_params,
-                    lr=self.lr,
+                    params=list(self.scheduler.parameters()),
+                    lr=1E-3,
                     betas=(0.9, 0.99),
                     weight_decay=0.
                 )
