@@ -39,10 +39,10 @@ class EvaluateSchedulerCallback(Callback):
         if trainer.logger is not None and batch_idx == 0:
             self.timesteps = self.timesteps.to(pl_module.device)
             gamma_t = pl_module.scheduler(self.timesteps)
-            alpha_t = torch.sigmoid(-gamma_t).sqrt()
+            alpha_t = torch.sigmoid(gamma_t).sqrt()
 
             fig, ax = plt.subplots()
-            ax.plot(self.timesteps.cpu(), -gamma_t.cpu())
+            ax.plot(self.timesteps.cpu(), gamma_t.cpu())
             ax.set_xlim(0, 1)
             ax.set_xlabel("Time")
             ax.set_ylabel("log SNR")
