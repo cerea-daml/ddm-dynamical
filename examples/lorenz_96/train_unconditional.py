@@ -47,7 +47,7 @@ def train_model():
         lr=3E-4,
         sampler=DDIMSampler(
             scheduler=scheduler,
-            network=denoising_network,
+            denoising_network=denoising_network,
             timesteps=100
         )
     )

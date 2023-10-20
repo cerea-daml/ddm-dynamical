@@ -21,7 +21,7 @@ from torch.nn.modules.utils import _pair
 import numpy as np
 
 # Internal modules
-from ddm_dynamical.layers import FilmLayer, RandomFourierLayer
+from ddm_dynamical.layers import FilmLayer, SinusoidalEmbedding
 
 main_logger = logging.getLogger(__name__)
 
@@ -62,11 +62,11 @@ class L96Conv(torch.nn.Module):
         return out_tensor
 
 
-class TimeConditionedNorm(torch.nn.Module):
-    def __init__(self, n_neurons: int, n_time_embedding: int = 128):
+class ConditionedNorm(torch.nn.Module):
+    def __init__(self, n_neurons: int, n_embedding: int = 128):
         super().__init__()
         self.norm = torch.nn.GroupNorm(1, n_neurons, eps=1E-6, affine=False)
-        self.film = FilmLayer(n_neurons, n_time_embedding)
+        self.film = FilmLayer(n_neurons, n_embedding)
 
     def forward(
             self,
@@ -82,7 +82,7 @@ class ConvNextBlock(torch.nn.Module):
             self,
             n_channels: int,
             kernel_size: int = 3,
-            n_time_embedding: int = 128,
+            n_embedding: int = 128,
             mixing_mult: int = 1,
             layer_scale_init_value: float = 1e-6,
     ):
@@ -91,7 +91,7 @@ class ConvNextBlock(torch.nn.Module):
             n_channels, n_channels, kernel_size=kernel_size,
             stride=1, groups=n_channels
         )
-        self.norm = TimeConditionedNorm(n_channels, n_time_embedding)
+        self.norm = ConditionedNorm(n_channels, n_embedding)
         self.mixing_layers = torch.nn.Sequential(
             L96Conv(n_channels, n_channels * mixing_mult, 1),
             torch.nn.ReLU(),
@@ -121,24 +121,24 @@ class DownLayer(torch.nn.Module):
             n_blocks: int = 2,
             kernel_size: int = 3,
             mixing_mult: int = 2,
-            n_time_embedding: int = 128,
+            n_embedding: int = 128,
     ):
         super().__init__()
-        self.norm_layer = TimeConditionedNorm(in_channels, n_time_embedding)
+        self.norm_layer = ConditionedNorm(in_channels, n_embedding)
         self.pooling = L96Conv(
             in_channels, out_channels, kernel_size=3, stride=2
         )
         out_layers = [
             ConvNextBlock(
                 n_channels=out_channels, kernel_size=kernel_size,
-                mixing_mult=mixing_mult, n_time_embedding=n_time_embedding
+                mixing_mult=mixing_mult, n_embedding=n_embedding
             )
         ]
         for block in range(1, n_blocks):
             out_layers.append(
                 ConvNextBlock(
                     n_channels=out_channels, kernel_size=kernel_size,
-                    mixing_mult=mixing_mult, n_time_embedding=n_time_embedding
+                    mixing_mult=mixing_mult, n_embedding=n_embedding
                 )
             )
         self.out_layers = torch.nn.ModuleList(out_layers)
@@ -163,10 +163,10 @@ class UpLayer(torch.nn.Module):
             n_blocks: int = 2,
             kernel_size: int = 3,
             mixing_mult: int = 2,
-            n_time_embedding: int = 128,
+            n_embedding: int = 128,
     ):
         super().__init__()
-        self.norm_layer = TimeConditionedNorm(in_channels, n_time_embedding)
+        self.norm_layer = ConditionedNorm(in_channels, n_embedding)
         self.upscaling = torch.nn.Upsample(
                 scale_factor=2, mode='nearest'
         )
@@ -176,14 +176,14 @@ class UpLayer(torch.nn.Module):
         out_layers = [
             ConvNextBlock(
                 n_channels=out_channels, kernel_size=kernel_size,
-                mixing_mult=mixing_mult, n_time_embedding=n_time_embedding
+                mixing_mult=mixing_mult, n_embedding=n_embedding
             )
         ]
         for block in range(1, n_blocks):
             out_layers.append(
                 ConvNextBlock(
                     n_channels=out_channels, kernel_size=kernel_size,
-                    mixing_mult=mixing_mult, n_time_embedding=n_time_embedding
+                    mixing_mult=mixing_mult, n_embedding=n_embedding
                 )
             )
         self.out_layers = torch.nn.ModuleList(out_layers)
@@ -210,17 +210,17 @@ class UNeXt(torch.nn.Module):
             n_blocks: int = 1,
             n_depth: int = 1,
             kernel_size: int = 5,
-            n_time_embedding: int = 512
+            n_embedding: int = 512
     ):
         super().__init__()
-        self.time_embedding = RandomFourierLayer(1, n_time_embedding)
+        self.gamma_embedding = SinusoidalEmbedding(n_embedding)
         self.init_layer = L96Conv(1, n_channels, kernel_size=7)
 
         self.init_blocks = torch.nn.ModuleList([
             ConvNextBlock(
                 n_channels=n_channels,
                 kernel_size=kernel_size,
-                n_time_embedding=n_time_embedding
+                n_embedding=n_embedding
             )
             for _ in range(n_blocks)
         ])
@@ -228,7 +228,7 @@ class UNeXt(torch.nn.Module):
             n_features=n_channels,
             n_depth=n_depth,
             n_blocks=n_blocks,
-            n_time_embedding=n_time_embedding,
+            n_embedding=n_embedding,
             mixing_mult=1,
             kernel_size=kernel_size
         )
@@ -236,13 +236,13 @@ class UNeXt(torch.nn.Module):
         self.bottleneck_layer = ConvNextBlock(
             bottleneck_features,
             kernel_size=kernel_size,
-            n_time_embedding=n_time_embedding
+            n_embedding=n_embedding
         )
         self.out_blocks = torch.nn.ModuleList([
             ConvNextBlock(
                 n_channels=n_channels,
                 kernel_size=kernel_size,
-                n_time_embedding=n_time_embedding
+                n_embedding=n_embedding
             )
             for _ in range(n_blocks)
         ])
@@ -253,7 +253,7 @@ class UNeXt(torch.nn.Module):
             n_features: int = 64,
             n_depth: int = 3,
             n_blocks: int = 2,
-            n_time_embedding: int = 128,
+            n_embedding: int = 128,
             mixing_mult: int = 2,
             kernel_size: int = 5,
     ) -> Tuple[torch.nn.ModuleList, torch.nn.ModuleList]:
@@ -268,7 +268,7 @@ class UNeXt(torch.nn.Module):
                     n_blocks,
                     kernel_size=kernel_size,
                     mixing_mult=mixing_mult,
-                    n_time_embedding=n_time_embedding
+                    n_embedding=n_embedding
                 )
             )
         up_layers = []
@@ -282,7 +282,7 @@ class UNeXt(torch.nn.Module):
                     n_blocks,
                     kernel_size=kernel_size,
                     mixing_mult=mixing_mult,
-                    n_time_embedding=n_time_embedding
+                    n_embedding=n_embedding
                 )
             )
         down_layers = torch.nn.ModuleList(down_layers)
@@ -292,33 +292,33 @@ class UNeXt(torch.nn.Module):
     def extract_features(
             self,
             in_tensor: torch.Tensor,
-            time_tensor: torch.Tensor
+            normalized_gamma: torch.Tensor
     ) -> torch.Tensor:
-        embedded_time = self.time_embedding(time_tensor)
+        embedding = self.gamma_embedding(normalized_gamma)
         in_tensor = in_tensor.unsqueeze(-2)
         init_tensor = self.init_layer(in_tensor)
         for layer in self.init_blocks:
-            init_tensor = layer(init_tensor, embedded_time)
+            init_tensor = layer(init_tensor, embedding)
         down_tensor_list = [init_tensor]
         for layer in self.down_layers:
             down_tensor_list.append(
-                layer(down_tensor_list[-1], embedded_time)
+                layer(down_tensor_list[-1], embedding)
             )
         down_tensor_list = down_tensor_list[::-1]
         features_tensor = self.bottleneck_layer(
-            down_tensor_list[0], embedded_time
+            down_tensor_list[0], embedding
         )
         for k, layer in enumerate(self.up_layers):
             features_tensor = layer(
-                features_tensor, down_tensor_list[k+1], embedded_time
+                features_tensor, down_tensor_list[k+1], embedding
             )
         for layer in self.out_blocks:
-            features_tensor = layer(features_tensor, embedded_time)
+            features_tensor = layer(features_tensor, embedding)
         return features_tensor
 
-    def forward(self, in_tensor, time_tensor, mask=None):
+    def forward(self, in_tensor, normalized_gamma, mask=None, **kwargs):
         extracted_features = self.extract_features(
-            in_tensor=in_tensor, time_tensor=time_tensor
+            in_tensor=in_tensor, normalized_gamma=normalized_gamma
         )
         out_tensor = self.output_head(extracted_features)
         out_tensor = out_tensor.squeeze(dim=-2)
