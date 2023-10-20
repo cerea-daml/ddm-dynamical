@@ -137,37 +137,9 @@ class UnconditionalModule(LightningModule):
             noise: torch.Tensor,
             sampled_time: torch.Tensor,
     ) -> torch.Tensor:
-        weighting = self.scheduler.get_gamma_deriv(sampled_time)
+        weighting = -self.scheduler.get_gamma_deriv(sampled_time)
         error_noise = (prediction - noise).pow(2)
         return 0.5 * weighting * error_noise
-
-    def get_prior_loss(
-            self,
-            latent: torch.Tensor,
-    ) -> torch.Tensor:
-        gamma_1 = self.scheduler(
-            torch.ones(1, dtype=latent.dtype, device=latent.device)
-        )
-        var_1 = torch.sigmoid(-gamma_1)
-        loss_latent = 0.5 * (
-                (1-var_1) * torch.square(latent)
-                + var_1 - torch.log(var_1) - 1.
-        )
-        return loss_latent
-
-    def get_recon_loss(
-            self,
-            data: torch.Tensor,
-            latent: torch.Tensor,
-            noise: torch.Tensor
-    ) -> torch.Tensor:
-        gamma_0 = self.scheduler(
-            torch.zeros(1, dtype=data.dtype, device=data.device)
-        )
-        alpha_0 = torch.sigmoid(-gamma_0)
-        x_hat = alpha_0.sqrt() * latent + (1-alpha_0).sqrt() * noise
-        log_likelihood = self.decoder.log_likelihood(x_hat, data)
-        return -log_likelihood
 
     def estimate_loss(
             self,
@@ -197,23 +169,11 @@ class UnconditionalModule(LightningModule):
         )
 
         # Estimate losses
-        loss_recon = utils.masked_average(
-            self.get_recon_loss(data, latent, noise), mask
-        )
-        loss_diff = utils.masked_average(
+        total_loss = utils.masked_average(
             self.get_diff_loss(prediction, noise, sampled_time), mask
         )
-        loss_prior = utils.masked_average(
-            self.get_prior_loss(latent), mask
-        )
-        total_loss = loss_recon + loss_diff + loss_prior
 
         # Log losses
-        self.log_dict({
-            f"{prefix}/loss_recon": loss_recon,
-            f"{prefix}/loss_diff": loss_diff,
-            f"{prefix}/loss_prior": loss_prior,
-        }, batch_size=batch_size)
         self.log(f'{prefix}/loss', total_loss, batch_size=batch_size,
                  prog_bar=True)
 
