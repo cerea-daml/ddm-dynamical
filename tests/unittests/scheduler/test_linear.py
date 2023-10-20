@@ -34,3 +34,19 @@ class TestLinearScheduler(unittest.TestCase):
         returned_gamma = self.scheduler._estimate_gamma(self.timesteps)
         torch.testing.assert_close(returned_gamma, true_gamma)
 
+    def test_normalized_gamma_returns_1_0_gamma(self):
+        true_normalized = 1-self.timesteps
+        gamma = self.scheduler._estimate_gamma(self.timesteps)
+        returned_normalized = self.scheduler.get_normalized_gamma(gamma)
+        torch.testing.assert_close(returned_normalized, true_normalized)
+
+    def test_forward_returns_always_same(self):
+        true_gamma = self.scheduler._estimate_gamma(self.timesteps)
+        self.scheduler.normalize = False
+        unnorm_gamma = self.scheduler(self.timesteps)
+        torch.testing.assert_close(unnorm_gamma, true_gamma)
+        self.scheduler.normalize = True
+        norm_gamma = self.scheduler(self.timesteps)
+        torch.testing.assert_close(norm_gamma, true_gamma)
+
+
