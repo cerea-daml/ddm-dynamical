@@ -14,6 +14,7 @@ import logging
 
 # External modules
 import torch
+from torch.func import grad
 
 # Internal modules
 from ddm_dynamical.scheduler.noise_scheduler import NoiseScheduler
@@ -79,3 +80,20 @@ class TestNoiseScheduler(unittest.TestCase):
 
         self.assertIsNotNone(self.scheduler.gamma_min.grad)
         self.assertIsNotNone(self.scheduler.gamma_max.grad)
+
+    def test_gamma_deriv_returns_deriv(self):
+        grad_func = grad(lambda t: self.scheduler(t).sum())
+        true_grad = grad_func(self.timesteps)
+        returned_grad = self.scheduler.get_gamma_deriv(self.timesteps)
+        torch.testing.assert_close(returned_grad, true_grad)
+
+    def test_can_be_updated(self):
+        before = self.scheduler(self.timesteps)
+        self.scheduler.update(self.timesteps, self.timesteps*5)
+        after = self.scheduler(self.timesteps)
+        torch.testing.assert_close(after, before)
+
+    def test_empty_gamma_function(self):
+        scheduler = NoiseScheduler()
+        returned_value = scheduler._estimate_gamma(self.timesteps)
+        self.assertIsNone(returned_value)
