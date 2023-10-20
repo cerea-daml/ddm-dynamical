@@ -22,7 +22,7 @@ import torch
 logger = logging.getLogger(__name__)
 
 
-class SinusoidalTimeEmbedding(torch.nn.Module):
+class SinusoidalEmbedding(torch.nn.Module):
     def __init__(self, dim: int = 512, max_freq: float = 10000):
         super().__init__()
         half_dim = dim // 2
@@ -32,8 +32,8 @@ class SinusoidalTimeEmbedding(torch.nn.Module):
         )
 
     def forward(
-            self, time_tensor: torch.Tensor
+            self, in_tensor: torch.Tensor
     ) -> torch.Tensor:
-        embeddings = time_tensor * self.frequencies
-        embeddings = torch.cat((embeddings.sin(), embeddings.cos()), dim=-1)
-        return embeddings
+        embedding = in_tensor * self.frequencies
+        embedding = torch.cat((embedding.sin(), embedding.cos()), dim=-1)
+        return embedding
