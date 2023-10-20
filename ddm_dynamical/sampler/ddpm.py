@@ -54,7 +54,7 @@ class DDPMSampler(BaseSampler):
         time_tensor = torch.ones(
             in_data.size(0), 1, device=in_data.device, dtype=in_data.dtype
         ) * step
-        prediction = self.network(
+        prediction = self.denoising_network(
             in_data, normalized_gama=norm_gamma_t, mask=mask, **conditioning
         )
         state = self.proj_func(
