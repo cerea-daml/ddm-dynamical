@@ -44,7 +44,7 @@ class NoiseScheduler(torch.nn.Module):
                 [0., 1.], dtype=gamma.dtype, device=gamma.device
             )
         )
-        return (gamma-gamma_0) / (gamma_1-gamma_0+self.eps)
+        return (gamma-gamma_1) / (gamma_0-gamma_1+self.eps)
 
     def get_gamma_deriv(self, timesteps: torch.Tensor) -> torch.Tensor:
         return grad(
@@ -61,6 +61,6 @@ class NoiseScheduler(torch.nn.Module):
     def forward(self, timesteps: torch.Tensor) -> torch.Tensor:
         gamma = self._estimate_gamma(timesteps)
         if self.normalize:
-            gamma = self.gamma_min + (self.gamma_max-self.gamma_min) * \
+            gamma = self.gamma_max + (self.gamma_min-self.gamma_max) * \
                     self.normalize_gamma(gamma)
         return gamma
