@@ -55,7 +55,7 @@ class DDPMSampler(BaseSampler):
             in_data.size(0), 1, device=in_data.device, dtype=in_data.dtype
         ) * step
         prediction = self.denoising_network(
-            in_data, normalized_gama=norm_gamma_t, mask=mask, **conditioning
+            in_data, normalized_gamma=norm_gamma_t, mask=mask, **conditioning
         )
         state = self.proj_func(
             prediction=prediction,
