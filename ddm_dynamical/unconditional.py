@@ -131,25 +131,15 @@ class UnconditionalModule(LightningModule):
         sampled_time = sampled_time.reshape(time_shape)
         return sampled_time
 
-    def get_diff_loss(
-            self,
-            prediction: torch.Tensor,
-            noise: torch.Tensor,
-            sampled_time: torch.Tensor,
-    ) -> torch.Tensor:
-        weighting = -self.scheduler.get_gamma_deriv(sampled_time)
-        error_noise = (prediction - noise).pow(2)
-        return 0.5 * weighting * error_noise
-
     def estimate_loss(
             self,
-            batch: torch.Tensor,
+            batch: Dict[str, torch.Tensor],
             prefix: str = "train",
-    ) -> torch.Tensor:
+    ) -> Dict[str, torch.Tensor]:
         # Pop data and mask out of batch
-        data = batch.pop("data")
+        data = batch["data"]
         batch_size = data.size(0)
-        mask = batch.pop("mask", None)
+        mask = batch["mask"]
 
         # Sampling
         noise = torch.randn_like(data)
@@ -165,12 +155,14 @@ class UnconditionalModule(LightningModule):
         noised_latent = (1 - var_t).sqrt() * latent + var_t.sqrt() * noise
         prediction = self.denoising_network(
             noised_latent, normalized_gamma=norm_gamma_t.view(-1, 1), mask=mask,
-            **batch
+            **{k: v for k, v in batch.items() if k not in ["data", "mask"]}
         )
 
         # Estimate losses
+        weighting = -self.scheduler.get_gamma_deriv(sampled_time)
+        error_noise = (prediction - noise).pow(2)
         total_loss = utils.masked_average(
-            self.get_diff_loss(prediction, noise, sampled_time), mask
+            weighting * error_noise, mask
         )
 
         # Log losses
@@ -183,7 +175,27 @@ class UnconditionalModule(LightningModule):
         data_loss = utils.masked_average(data_abs_err, mask)
         self.log(f'{prefix}/data_loss', data_loss, prog_bar=False,
                  batch_size=batch_size)
-        return total_loss
+        return {
+            "loss": total_loss,
+            "sampled_time": sampled_time,
+            "diff_sq_err": error_noise
+        }
+
+    def on_train_batch_end(
+            self,
+            outputs: Dict[str, torch.Tensor],
+            batch: Dict[str, torch.Tensor],
+            batch_idx: int
+    ) -> Dict[str, torch.Tensor]:
+        density_target = utils.masked_average(
+            outputs["diff_sq_err"].detach(), batch["mask"],
+            dim=tuple(range(1, outputs["diff_sq_err"].dim()))
+        )
+        self.scheduler.update(
+            outputs["sampled_time"].squeeze(), density_target
+        )
+        print(self.scheduler.get_normalized_gamma(torch.linspace(0, 1, 11, device=self.device)))
+        return outputs
     
     def training_step(
             self,

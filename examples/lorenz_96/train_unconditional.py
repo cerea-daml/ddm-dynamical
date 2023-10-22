@@ -38,7 +38,7 @@ def train_model():
     denoising_network = UNeXt()
     encoder = GaussianEncoder()
     decoder = GaussianDecoder()
-    scheduler = PiecewiseScheduler()
+    scheduler = PiecewiseScheduler(lr=0.1)
     model = UnconditionalModule(
         denoising_network=denoising_network,
         encoder=encoder,

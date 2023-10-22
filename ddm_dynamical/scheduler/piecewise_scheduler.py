@@ -38,7 +38,7 @@ class PiecewiseScheduler(NoiseScheduler):
         )
         self.register_buffer(
             "support_density",
-            torch.full((n_support, ), 1/(gamma_max-gamma_min))
+            torch.full((n_support, ), 1.)
         )
         self.register_buffer(
             "support_integral", torch.zeros(n_support)
