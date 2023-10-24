@@ -34,7 +34,9 @@ class BinarizedScheduler(NoiseScheduler):
         Kingma and Guo, `Understanding Diffusion Objectives as the ELBO with Simple Data Augmentation`.
         """
         super().__init__(gamma_min=gamma_min, gamma_max=gamma_max)
-        self.bin_limits = torch.linspace(0, 1, n_bins+1)
+        self.register_buffer(
+            "bin_limits", torch.linspace(0, 1, n_bins+1)
+        )
         self.register_buffer(
             "bin_values", torch.ones(n_bins)
         )
