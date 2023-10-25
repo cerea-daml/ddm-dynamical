@@ -64,6 +64,7 @@ class BinarizedScheduler(NoiseScheduler):
         elif not isinstance(new_values, (torch.Tensor, torch.nn.Parameter)):
             new_values = torch.tensor(new_values)
         self._bin_values = new_values
+        self._update_times()
 
     def _update_times(self):
         bin_times = torch.cumsum(
@@ -75,23 +76,32 @@ class BinarizedScheduler(NoiseScheduler):
         )
         self._bin_times = torch.flip(bin_times / bin_times[-1], dims=(0,))
 
-    def get_left(self, keys: torch.Tensor, query: torch.Tensor) -> torch.Tensor:
+    def get_bin_num(self, gamma: torch.Tensor) -> torch.Tensor:
         return (
-            torch.searchsorted(keys, query, right=True)-1
-        ).clamp(min=0, max=len(keys)-1)
+            torch.searchsorted(self.bin_limits, gamma, right=True)-1
+        ).clamp(min=0, max=self.n_bins-1)
+
+    def get_left_time(
+            self, timesteps: torch.Tensor
+    ) -> torch.Tensor:
+        ordered_left = (
+            torch.searchsorted(-self.bin_times, -timesteps, right=True,)-1
+        ).clamp(min=0, max=self.n_bins-1)
+        return ordered_left
 
     def get_density(self, gamma: torch.Tensor) -> torch.Tensor:
-        return self.bin_values[self.get_left(self.bin_limits, gamma)]
+        bin_num = self.get_bin_num(gamma)
+        return self.bin_values[bin_num]
 
     def forward(self, timesteps: torch.Tensor) -> torch.Tensor:
-        idx_left = self.get_left(self.bin_times, timesteps)
-        dgamma_dt = (
-                self.bin_limits[idx_left+1]-self.bin_limits[idx_left]
+        idx_left = self.get_left_time(timesteps)
+        gamma_left = self.bin_limits[idx_left]
+        delta_gamma = (
+                self.bin_limits[idx_left+1]-gamma_left
         ) / (
-                self.bin_times[idx_left+1] - self.bin_times[idx_left]
-        )
-        delta_gamma = dgamma_dt * (timesteps - self.bin_times[idx_left])
-        return self.bin_limits[idx_left] + delta_gamma
+                self.bin_times[idx_left+1]-self.bin_times[idx_left]
+        ) * (timesteps - self.bin_times[idx_left])
+        return gamma_left + delta_gamma
 
     def update(
             self,
@@ -100,20 +110,20 @@ class BinarizedScheduler(NoiseScheduler):
     ) -> None:
         ## EMA update with counting number of indices
         # Get indices
-        idx_left = self.get_left(self.bin_limits, gamma)
+        idx_bin = self.get_bin_num(gamma)
 
         # Count number of indices
-        num_idx = torch.bincount(idx_left, minlength=self.n_bins)
+        num_idx = torch.bincount(idx_bin, minlength=self.n_bins)
 
-        # Factor for original value is (1-rate) ^ number of appearances
-        factors = (1 - self.ema_rate) ** num_idx
+        # Factor for original value is ema_rate ^ number of appearances
+        factors = self.ema_rate ** num_idx
         self.bin_values *= factors
 
         # Add the target values times a scattered rate taking the
         # power into account.
-        scattered_factors = (1-factors[idx_left]) / num_idx[idx_left]
+        scattered_factors = (1-factors[idx_bin]) / num_idx[idx_bin]
         self.bin_values.scatter_add_(
-            dim=0, index=idx_left, src=scattered_factors*target
+            dim=0, index=idx_bin, src=scattered_factors*target
         )
         self._update_times()
 

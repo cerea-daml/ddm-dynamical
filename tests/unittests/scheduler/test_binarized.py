@@ -15,6 +15,7 @@ import logging
 
 # External modules
 import torch
+import numpy as np
 
 # Internal modules
 from ddm_dynamical.scheduler.binarized_scheduler import BinarizedScheduler
@@ -28,70 +29,219 @@ torch.manual_seed(42)
 class TestBinarizedScheduler(unittest.TestCase):
     def setUp(self) -> None:
         self.scheduler = BinarizedScheduler()
-        self.timesteps = torch.rand(16)
-        self.timesteps[:2] = torch.arange(2)
 
-    def test_get_gamma_deriv(self):
-        self.scheduler.bin_values = torch.randn(100)**2
-        left_bin = self.scheduler.get_left(self.timesteps)
-        target_deriv = - 1 / self.scheduler.bin_values[left_bin]
-        returned_deriv = self.scheduler.get_gamma_deriv(self.timesteps)
-        torch.testing.assert_close(returned_deriv, target_deriv)
+    def test_values_can_be_set(self):
+        values = torch.randn(100)**2
+        new_scheduler = BinarizedScheduler(values=values)
+        torch.testing.assert_close(new_scheduler.bin_values, values)
 
-    def test_get_normalized_gamma(self):
-        left_bin = self.scheduler.get_left(self.timesteps)
+    def test_values_is_set_to_ones_if_none(self):
+        new_scheduler = BinarizedScheduler(values=None)
+        torch.testing.assert_close(new_scheduler.bin_values, torch.ones(100))
+
+    def test_values_is_transferred_into_torch(self):
+        values = np.random.normal(size=100)**2
+        new_scheduler = BinarizedScheduler(values=values)
+        torch.testing.assert_close(
+            new_scheduler.bin_values, torch.tensor(values)
+        )
+        values = list(values)
+        new_scheduler = BinarizedScheduler(values=values)
+        torch.testing.assert_close(
+            new_scheduler.bin_values, torch.tensor(values)
+        )
+
+    def test_bin_times_returns_bin_times(self):
+        new_times = torch.rand(101)
+        self.scheduler._bin_times = new_times
+        torch.testing.assert_close(self.scheduler.bin_times, new_times)
+
+    def test_update_times_updates_time(self):
+        self.scheduler._bin_values = torch.randn(100)**2
+        bin_times = torch.cumsum(
+            torch.flip(self.scheduler._bin_values, dims=(0, )), dim=0
+        )
+        bin_times = torch.cat(
+            (torch.zeros(1, device=bin_times.device), bin_times),
+            dim=0
+        )
+        bin_times = torch.flip(bin_times / bin_times[-1], dims=(0, ))
+        self.scheduler._update_times()
+        torch.testing.assert_close(self.scheduler.bin_times, bin_times)
+
+    def test_setting_new_values_updates_bin_times(self):
+        values = torch.randn(100)**2
+        bin_times = torch.cumsum(
+            torch.flip(values, dims=(0, )), dim=0
+        )
+        bin_times = torch.cat(
+            (torch.zeros(1, device=bin_times.device), bin_times),
+            dim=0
+        )
+        bin_times = torch.flip(bin_times / bin_times[-1], dims=(0, ))
+        self.scheduler.bin_values = values
+        torch.testing.assert_close(self.scheduler.bin_times, bin_times)
+
+    def test_bin_num_returns_correct_bin(self):
+        bin_num = self.scheduler.get_bin_num(torch.tensor([-10]))
+        self.assertEqual(bin_num, 0)
+        bin_num = self.scheduler.get_bin_num(torch.tensor([-9.7]))
+        self.assertEqual(bin_num, 1)
+        bin_num = self.scheduler.get_bin_num(torch.tensor([9.7]))
+        self.assertEqual(bin_num, 98)
+        bin_num = self.scheduler.get_bin_num(torch.tensor([9.9]))
+        self.assertEqual(bin_num, 99)
+        bin_num = self.scheduler.get_bin_num(torch.tensor([10]))
+        self.assertEqual(bin_num, 99)
+
+    def test_time_left_returns_correct_idx(self):
         self.scheduler.bin_values = torch.randn(100)**2
-        integral = torch.cumsum(-1/self.scheduler.bin_values, dim=0)
-        self.scheduler.bin_gamma[1:] = (integral[-1]-integral)/integral[-1]
-        gamma_left = self.scheduler.bin_gamma[left_bin]
-        gamma_right = self.scheduler.bin_gamma[left_bin+1]
-        diff = gamma_right - gamma_left
-        time_diff = self.timesteps - self.scheduler.bin_limits[left_bin]
-        delta_gamma = diff * time_diff / self.scheduler.n_bins
-        true_gamma = gamma_left+delta_gamma
-        returned_gamma = self.scheduler.get_normalized_gamma(self.timesteps)
-        torch.testing.assert_close(returned_gamma, true_gamma)
+        self.scheduler._update_times()
+
+        idx_left = self.scheduler.get_left_time(torch.tensor([0.]))
+        self.assertEqual(idx_left, 99)
+        idx_left = self.scheduler.get_left_time(torch.tensor([1.]))
+        self.assertEqual(idx_left, 0)
+
+        test_time = torch.rand(128)
+        smaller = self.scheduler.bin_times[:, None] > test_time[None, :]
+        target_idx = (smaller.float().argmin(dim=0)-1).clamp(
+            min=0, max=self.scheduler.n_bins-1
+        )
+        idx_left = self.scheduler.get_left_time(test_time)
+        torch.testing.assert_close(idx_left, target_idx)
+
+    def test_get_density(self):
+        self.scheduler.bin_values = torch.randn(100)**2
+        test_gamma = torch.rand(10)*20-10
+        bin_num = self.scheduler.get_bin_num(test_gamma)
+        target_density = self.scheduler.bin_values[bin_num]
+        returned_density = self.scheduler.get_density(test_gamma)
+        torch.testing.assert_close(returned_density, target_density)
+
+    def test_forward_returns_gamma_uniform(self):
+        self.scheduler.bin_values = torch.ones(100)
+        self.scheduler._update_times()
+
+        returned_gamma = self.scheduler(torch.tensor(1.))
+        self.assertEqual(returned_gamma, self.scheduler.gamma_min)
+        returned_gamma = self.scheduler(torch.tensor(0.))
+        self.assertEqual(returned_gamma, self.scheduler.gamma_max)
+        returned_gamma = self.scheduler(torch.tensor(0.5))
+        self.assertEqual(returned_gamma, 0.)
+        returned_gamma = self.scheduler(torch.tensor(0.995))
+        self.assertEqual(returned_gamma, -9.9)
+
+
+        timesteps = torch.rand(128)
+        gamma_diff = self.scheduler.gamma_max-self.scheduler.gamma_min
+        gamma_target = ((1-timesteps)-0.5)*gamma_diff
+
+        returned_gamma = self.scheduler(timesteps)
+        torch.testing.assert_close(returned_gamma, gamma_target)
+
+    def test_forward_returns_gamma_random(self):
+        self.scheduler.bin_values = torch.randn(100)**2
+        self.scheduler._update_times()
+
+        returned_gamma = self.scheduler(torch.tensor(1.))
+        self.assertEqual(returned_gamma, self.scheduler.gamma_min)
+        returned_gamma = self.scheduler(torch.tensor(0.))
+        self.assertEqual(returned_gamma, self.scheduler.gamma_max)
+
+        timesteps = torch.rand(1024)
+        timesteps[:2] = torch.arange(2)
+        idx_left = self.scheduler.get_left_time(timesteps)
+        idx_right = idx_left+1
+        time_left = self.scheduler.bin_times[idx_left]
+        time_right = self.scheduler.bin_times[idx_right]
+        gamma_left = self.scheduler.bin_limits[idx_left]
+        gamma_right = self.scheduler.bin_limits[idx_right]
+
+        time_diff = time_right-time_left
+        gamma_diff = gamma_right-gamma_left
+        dgamma_dtime = gamma_diff / time_diff
+
+        delta_time = timesteps-time_left
+        delta_gamma = dgamma_dtime * delta_time
+        gamma_target = gamma_left + delta_gamma
+
+        returned_gamma = self.scheduler(timesteps)
+        torch.testing.assert_close(returned_gamma, gamma_target)
+
+    def test_update_updates_correct_index(self):
+        self.scheduler._bin_times = torch.linspace(
+            1, 0, self.scheduler.n_bins+1
+        )
+        target_values = torch.randn(1) ** 2
+        timesteps = torch.rand(1)
+        gammas = (1-timesteps) * 20 - 10
+        bin_num = self.scheduler.get_bin_num(gammas)
+        mask = torch.zeros(self.scheduler.n_bins, dtype=torch.bool)
+        mask[bin_num] = True
+        old_values = self.scheduler.bin_values.clone()
+        self.scheduler.update(gammas, target_values)
+        new_values = self.scheduler.bin_values.clone()
+        self.assertNotEqual(old_values[mask].item(), new_values[mask].item())
+        torch.testing.assert_close(old_values[~mask], new_values[~mask])
 
     def test_update_updates_with_ema(self):
-        target_values = torch.randn(1024)**2
+        self.scheduler.bin_values = torch.ones(100)
+        self.scheduler._update_times()
+        self.scheduler._bin_times = torch.linspace(
+            1, 0, self.scheduler.n_bins+1
+        )
+
+        target_values = torch.randn(1024) ** 2
         timesteps = torch.rand(1024)
-        idx_left = self.scheduler.get_left(timesteps)
-        original = self.scheduler.bin_values.clone()
+        gammas = (1-timesteps) * 20 - 10
 
-        n_idx = torch.zeros_like(original)
+        bin_num = self.scheduler.get_bin_num(gammas)
+
+        n_idx = torch.zeros_like(self.scheduler.bin_values)
         n_idx = torch.scatter_add(
-            n_idx, dim=0, index=idx_left, src=torch.ones_like(target_values)
+            n_idx, dim=0, index=bin_num, src=torch.ones_like(target_values)
         )
-        factors = (1-self.scheduler.ema_rate)**n_idx
-        scattered_rate = (1-factors[idx_left]) / n_idx[idx_left]
+        factors = self.scheduler.ema_rate**n_idx
+        scattered_rate = (1-factors[bin_num]) / n_idx[bin_num]
 
-        scattered = factors * original
+        scattered = factors * self.scheduler.bin_values
         scattered = torch.scatter_add(
-            scattered, dim=0, index=idx_left, src=scattered_rate*target_values
+            scattered, dim=0, index=bin_num, src=scattered_rate*target_values
         )
-        self.scheduler.update(timesteps, target_values)
+
+        self.scheduler.update(gammas, target_values)
         torch.testing.assert_close(self.scheduler.bin_values, scattered)
 
-    def test_update_updates_gammas(self):
-        target_values = torch.randn(1024)**2
+    def test_update_updates_time(self):
+        self.scheduler.bin_values = torch.ones(100)
+        self.scheduler._update_times()
+        self.scheduler._bin_times = torch.linspace(
+            1, 0, self.scheduler.n_bins+1
+        )
+
+        target_values = torch.randn(1024) ** 2
         timesteps = torch.rand(1024)
-        idx_left = self.scheduler.get_left(timesteps)
-        original = self.scheduler.bin_values.clone()
-
-        n_idx = torch.zeros_like(original)
+        gammas = (1-timesteps) * 20 - 10
+        bin_num = self.scheduler.get_bin_num(gammas)
+        n_idx = torch.zeros_like(self.scheduler.bin_values)
         n_idx = torch.scatter_add(
-            n_idx, dim=0, index=idx_left, src=torch.ones_like(target_values)
+            n_idx, dim=0, index=bin_num, src=torch.ones_like(target_values)
         )
-        factors = (1-self.scheduler.ema_rate)**n_idx
-        scattered_rate = (1-factors[idx_left]) / n_idx[idx_left]
-
-        scattered = factors * original
+        factors = self.scheduler.ema_rate**n_idx
+        scattered_rate = (1-factors[bin_num]) / n_idx[bin_num]
+        scattered = factors * self.scheduler.bin_values
         scattered = torch.scatter_add(
-            scattered, dim=0, index=idx_left, src=scattered_rate*target_values
+            scattered, dim=0, index=bin_num, src=scattered_rate*target_values
         )
-        derivative = -1/scattered
-        integral = torch.cumsum(derivative, dim=0)
-        correct_gamma = (integral[-1]-integral)/integral[-1]
-        correct_gamma = torch.cat((torch.ones(1), correct_gamma)).abs()
-        self.scheduler.update(timesteps, target_values)
-        torch.testing.assert_close(self.scheduler.bin_gamma, correct_gamma)
+        bin_times = torch.cumsum(
+            torch.flip(scattered, dims=(0, )), dim=0
+        )
+        bin_times = torch.cat(
+            (torch.zeros(1, device=bin_times.device), bin_times),
+            dim=0
+        )
+        bin_times = torch.flip(bin_times / bin_times[-1], dims=(0, ))
+        self.scheduler.update(gammas, target_values)
+        torch.testing.assert_close(self.scheduler.bin_times, bin_times)
+
