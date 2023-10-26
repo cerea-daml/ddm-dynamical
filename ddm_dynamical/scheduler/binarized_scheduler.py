@@ -89,8 +89,8 @@ class BinarizedScheduler(NoiseScheduler):
         ).clamp(min=0, max=self.n_bins-1)
         return ordered_left
 
-    def get_density(self, gamma: torch.Tensor) -> torch.Tensor:
-        bin_num = self.get_bin_num(gamma)
+    def get_density(self, timesteps: torch.Tensor) -> torch.Tensor:
+        bin_num = self.get_left_time(timesteps)
         return self.bin_values[bin_num]
 
     def forward(self, timesteps: torch.Tensor) -> torch.Tensor:
