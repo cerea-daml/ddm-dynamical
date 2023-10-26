@@ -14,7 +14,7 @@ import logging
 from typing import Any, Dict
 
 # External modules
-from pytorch_lightning import LightningModule
+from lightning.pytorch import LightningModule
 
 import torch
 

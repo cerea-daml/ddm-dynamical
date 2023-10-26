@@ -13,7 +13,7 @@ import logging
 import os.path
 
 # External modules
-from pytorch_lightning import LightningDataModule
+from lightning.pytorch import LightningDataModule
 import torch
 from torch.utils.data import DataLoader
 

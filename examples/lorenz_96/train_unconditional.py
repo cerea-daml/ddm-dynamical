@@ -12,13 +12,14 @@
 import logging
 
 # External modules
-import pytorch_lightning as pl
+import lightning.pytorch as pl
 
 from data_modules import UnconditionalStateDataModule
 from ddm_dynamical.encoder import GaussianEncoder
 from ddm_dynamical.decoder import GaussianDecoder
 from ddm_dynamical.sampler import DDIMSampler
-from ddm_dynamical.scheduler import *
+from ddm_dynamical.scheduler import BinarizedScheduler, EDMSamplingScheduler
+from ddm_dynamical.weighting import ELBOWeighting
 from ddm_dynamical.unconditional import UnconditionalModule
 
 # Internal modules
@@ -38,15 +39,15 @@ def train_model():
     denoising_network = UNeXt()
     encoder = GaussianEncoder()
     decoder = GaussianDecoder()
-    scheduler = PiecewiseScheduler(lr=0.1)
     model = UnconditionalModule(
         denoising_network=denoising_network,
         encoder=encoder,
         decoder=decoder,
-        scheduler=scheduler,
+        scheduler=BinarizedScheduler(gamma_min=-10, gamma_max=10),
+        weighting=ELBOWeighting(),
         lr=3E-4,
         sampler=DDIMSampler(
-            scheduler=scheduler,
+            scheduler=EDMSamplingScheduler(gamma_min=-10, gamma_max=10),
             denoising_network=denoising_network,
             timesteps=100
         )

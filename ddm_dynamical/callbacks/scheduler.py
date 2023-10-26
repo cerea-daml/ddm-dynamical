@@ -13,7 +13,7 @@ import logging
 from typing import Any
 
 # External modules
-from pytorch_lightning.callbacks import Callback
+from lightning.pytorch.callbacks import Callback
 import matplotlib.pyplot as plt
 import torch
 
