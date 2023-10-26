@@ -48,7 +48,6 @@ class BinarizedScheduler(NoiseScheduler):
         )
         self.bin_values = values
 
-
     @property
     def bin_times(self) -> torch.Tensor:
         return self._bin_times

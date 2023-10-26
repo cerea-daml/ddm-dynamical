@@ -42,4 +42,11 @@ class TestLinearScheduler(unittest.TestCase):
         returned_gamma = self.scheduler(timesteps)
         torch.testing.assert_close(returned_gamma, correct_gamma)
 
+    def test_density_constant(self):
+        timesteps = torch.rand(1024)
+        correct = torch.ones(1024) / (
+                self.scheduler.gamma_max-self.scheduler.gamma_min
+        )
 
+        returned = self.scheduler.get_density(timesteps)
+        torch.testing.assert_close(returned, correct)
