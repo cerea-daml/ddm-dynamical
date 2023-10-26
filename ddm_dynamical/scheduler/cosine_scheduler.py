@@ -20,11 +20,6 @@ from .noise_scheduler import NoiseScheduler
 main_logger = logging.getLogger(__name__)
 
 
-def inverse_schedule(gamma, shift: float = 0.) -> torch.Tensor:
-    factor = torch.exp(-torch.tensor(gamma) * 0.5 - shift)
-    return 2 / torch.pi * torch.arctan(factor)
-
-
 class CosineScheduler(NoiseScheduler):
     def __init__(
             self,
@@ -34,13 +29,18 @@ class CosineScheduler(NoiseScheduler):
     ):
         super().__init__(gamma_min=gamma_min, gamma_max=gamma_max)
         self.shift = shift
-        t0 = inverse_schedule(gamma_max, shift)
-        t1 = inverse_schedule(gamma_min, shift)
+        t0 = self.inverse_schedule(gamma_max)
+        t1 = self.inverse_schedule(gamma_min)
         self.register_buffer("time_scale", t1-t0)
         self.register_buffer("time_shift", t0)
 
+    def inverse_schedule(self, gamma) -> torch.Tensor:
+        factor = torch.exp(-torch.tensor(gamma) * 0.5 - self.shift)
+        return 2 / torch.pi * torch.arctan(factor)
+
     def get_density(self, gamma: torch.Tensor) -> torch.Tensor:
-        return 1/torch.cosh(gamma * 0.5 - self.shift) / (2 * torch.pi)
+        return 1/torch.cosh(gamma * 0.5 - self.shift) / (2 * torch.pi) \
+            / self.time_scale
 
     def forward(self, timesteps: torch.Tensor) -> torch.Tensor:
         truncated_time = self.time_shift + self.time_scale * timesteps
