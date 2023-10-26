@@ -21,5 +21,5 @@ main_logger = logging.getLogger(__name__)
 
 
 class LinearScheduler(NoiseScheduler):
-    def get_normalized_gamma(self, timesteps: torch.Tensor) -> torch.Tensor:
-        return 1-timesteps
+    def forward(self, timesteps: torch.Tensor) -> torch.Tensor:
+        return (1-timesteps) * (self.gamma_max-self.gamma_min) + self.gamma_min

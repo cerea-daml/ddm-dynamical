@@ -26,27 +26,20 @@ logging.basicConfig(level=logging.DEBUG)
 class TestLinearScheduler(unittest.TestCase):
     def setUp(self) -> None:
         self.scheduler = LinearScheduler()
-        self.timesteps = torch.rand(10)
 
-    def test_gamma_returns_linear_from_max_to_min(self):
-        slope = self.scheduler.gamma_min-self.scheduler.gamma_max
-        true_gamma = self.scheduler.gamma_max + slope * self.timesteps
-        returned_gamma = self.scheduler._estimate_gamma(self.timesteps)
-        torch.testing.assert_close(returned_gamma, true_gamma)
+    def test_linear_returns_gamma_from_max_to_min(self):
+        timesteps = torch.rand(1024)
+        correct_gamma = (1-timesteps) * 20 - 10
+        returned_gamma = self.scheduler(timesteps)
+        torch.testing.assert_close(returned_gamma, correct_gamma)
 
-    def test_normalized_gamma_returns_1_0_gamma(self):
-        true_normalized = 1-self.timesteps
-        gamma = self.scheduler._estimate_gamma(self.timesteps)
-        returned_normalized = self.scheduler.get_normalized_gamma(gamma)
-        torch.testing.assert_close(returned_normalized, true_normalized)
-
-    def test_forward_returns_always_same(self):
-        true_gamma = self.scheduler._estimate_gamma(self.timesteps)
-        self.scheduler.normalize = False
-        unnorm_gamma = self.scheduler(self.timesteps)
-        torch.testing.assert_close(unnorm_gamma, true_gamma)
-        self.scheduler.normalize = True
-        norm_gamma = self.scheduler(self.timesteps)
-        torch.testing.assert_close(norm_gamma, true_gamma)
+        # Chagne gamma min and gamma max
+        scale = 30
+        shift = -20
+        self.scheduler.gamma_min = shift
+        self.scheduler.gamma_max = scale+shift
+        correct_gamma = (1 - timesteps) * scale + shift
+        returned_gamma = self.scheduler(timesteps)
+        torch.testing.assert_close(returned_gamma, correct_gamma)
 
 
