@@ -1,14 +1,12 @@
 from .binarized_scheduler import BinarizedScheduler
-from .ddpm_scheduler import DDPMScheduler
+from .cosine_scheduler import CosineScheduler
+from .edm_sampling import EDMSamplingScheduler
 from .linear_scheduler import LinearScheduler
-from .nn_scheduler import NNScheduler
-from .piecewise_scheduler import PiecewiseScheduler
 
 
 __all__ = [
     "BinarizedScheduler",
-    "DDPMScheduler",
+    "CosineScheduler",
+    "EDMSamplingScheduler",
     "LinearScheduler",
-    "NNScheduler",
-    "PiecewiseScheduler"
 ]

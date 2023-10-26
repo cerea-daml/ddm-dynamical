@@ -36,11 +36,8 @@ class NoiseScheduler(torch.nn.Module):
     def normalize_gamma(self, gamma: torch.Tensor) -> torch.Tensor:
         return (gamma-self.gamma_min) / (self.gamma_max-self.gamma_min)
 
-    def get_density(self, timesteps: torch.Tensor) -> torch.Tensor:
-        timesteps = torch.nn.Parameter(timesteps)
-        return -1 / (grad(
-            lambda x: self(x).sum()
-        )(timesteps) + self.eps)
+    def get_density(self, gamma: torch.Tensor) -> torch.Tensor:
+        pass
 
     def forward(self, timesteps: torch.Tensor) -> torch.Tensor:
         pass
