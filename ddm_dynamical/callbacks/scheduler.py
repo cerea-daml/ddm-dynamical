@@ -38,11 +38,12 @@ class EvaluateSchedulerCallback(Callback):
     ) -> None:
         if trainer.logger is not None and batch_idx == 0:
             self.timesteps = self.timesteps.to(pl_module.device)
-            gamma_t = pl_module.scheduler(self.timesteps)
-            alpha_t = torch.sigmoid(gamma_t).sqrt()
+            gamma = pl_module.scheduler(self.timesteps)
+            density = pl_module.scheduler.get_density(gamma)
+            alpha = torch.sigmoid(gamma).sqrt()
 
             fig, ax = plt.subplots()
-            ax.plot(self.timesteps.cpu(), gamma_t.cpu())
+            ax.plot(self.timesteps.cpu(), gamma.cpu())
             ax.set_xlim(0, 1)
             ax.set_xlabel("Time")
             ax.set_ylabel("log SNR")
@@ -52,7 +53,16 @@ class EvaluateSchedulerCallback(Callback):
             )
 
             fig, ax = plt.subplots()
-            ax.plot(self.timesteps.cpu(), alpha_t.cpu())
+            ax.plot(gamma.cpu(), density.cpu())
+            ax.set_xlabel("log SNR")
+            ax.set_ylabel("Density")
+
+            trainer.logger.log_image(
+                "scheduler/density", [fig]
+            )
+
+            fig, ax = plt.subplots()
+            ax.plot(self.timesteps.cpu(), alpha.cpu())
             ax.set_xlim(0, 1)
             ax.set_ylim(0, 1)
             ax.set_xlabel("Time")
