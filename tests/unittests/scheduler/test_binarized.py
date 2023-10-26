@@ -121,7 +121,7 @@ class TestBinarizedScheduler(unittest.TestCase):
         bin_num = self.scheduler.get_bin_num(test_gamma)
 
         target_density = self.scheduler.bin_values[bin_num]
-        returned_density = self.scheduler.get_density(test_time)
+        returned_density = self.scheduler.get_density(test_gamma)
         torch.testing.assert_close(returned_density, target_density)
 
     def test_forward_returns_gamma_uniform(self):
