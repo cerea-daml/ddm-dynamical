@@ -21,5 +21,8 @@ main_logger = logging.getLogger(__name__)
 
 
 class LinearScheduler(NoiseScheduler):
+    def get_density(self, gamma: torch.Tensor) -> torch.Tensor:
+        return torch.ones_like(gamma) / (self.gamma_max-self.gamma_min)
+
     def forward(self, timesteps: torch.Tensor) -> torch.Tensor:
         return (1-timesteps) * (self.gamma_max-self.gamma_min) + self.gamma_min
