@@ -20,6 +20,7 @@ import torch
 
 # Internal modules
 from ddm_dynamical import utils
+from ddm_dynamical.weighting.elbo import ELBOWeighting
 
 
 logger = logging.getLogger(__name__)
@@ -32,8 +33,8 @@ class UnconditionalModule(LightningModule):
             encoder: torch.nn.Module,
             decoder: torch.nn.Module,
             scheduler: "ddm_dynamical.scheduler.noise_scheduler.NoiseScheduler",
+            weighting=None,
             lr: float = 1E-3,
-            weight_decay: float = None,
             sampler: "ddm_dynamical.sampler.sampler.BaseSampler" = None
     ) -> None:
         """
@@ -46,9 +47,19 @@ class UnconditionalModule(LightningModule):
         ----------
         denoising_network : torch.nn.Module
             This denoising neural network will be trained by this module
+        encoder : torch.nn.Module
+            The encoding function that transforms the input into latent space.
+        decoder : torch.nn.Module
+            The decoding function that translates from latent space back to
+            state space.
         scheduler : ddm_dynamical.scheduler.noise_scheduler.NoiseScheduler
-            This noise scheduler defines the signal to noise ratio for the time
-            steps during training.
+            This noise scheduler defines the signal to noise ratio for the
+            training. The training scheduler can be different from the sampling
+            scheduler.
+        weighting : torch.nn.Module, default = None
+            The weighting function that determines the weighting of the
+            different loss terms in the diffusion loss. If None, then a constant
+            weighting, corresponding to the original ELBO is used.
         lr : float, default = 1E-3
             The learning rate during training.
         sampler : {ddm_dynamical.sampler.sampler.BaseSampler, None}, default = None
@@ -57,14 +68,16 @@ class UnconditionalModule(LightningModule):
         super().__init__()
         self.scheduler = scheduler
         self.denoising_network = denoising_network
+        if weighting is None:
+            weighting = ELBOWeighting()
+        self.weighting = weighting
         self.encoder = encoder
         self.decoder = decoder
         self.lr = lr
         self.sampler = sampler
-        self.weight_decay = weight_decay
         self.save_hyperparameters(
             ignore=["denoising_network", "encoder", "decoder", "scheduler",
-                    "sampler"]
+                    "weighting", "sampler"]
         )
 
     def forward(
@@ -146,23 +159,26 @@ class UnconditionalModule(LightningModule):
         sampled_time = self.sample_time(data)
 
         # Evaluate scheduler
-        norm_gamma_t = self.scheduler.get_normalized_gamma(sampled_time)
-        gamma_t = self.scheduler.denormalize_gamma(norm_gamma_t)
-        var_t = torch.sigmoid(-gamma_t)
+        gamma = self.scheduler(sampled_time)
+        noise_var = torch.sigmoid(-gamma)
 
         # Estimate prediction
         latent = self.encoder(data)
-        noised_latent = (1 - var_t).sqrt() * latent + var_t.sqrt() * noise
+        noised_latent = (1 - noise_var).sqrt() * latent \
+                        + noise_var.sqrt() * noise
+        norm_gamma = self.scheduler.normalize_gamma(gamma.detach())
         prediction = self.denoising_network(
-            noised_latent, normalized_gamma=norm_gamma_t.view(-1, 1), mask=mask,
+            noised_latent, normalized_gamma=norm_gamma.view(-1, 1), mask=mask,
             **{k: v for k, v in batch.items() if k not in ["data", "mask"]}
         )
 
         # Estimate losses
-        weighting = -self.scheduler.get_gamma_deriv(sampled_time)
-        error_noise = (prediction - noise).pow(2)
+        weighting = self.weighting(gamma)
+        density = self.scheduler.get_density(gamma)
+
+        weighted_error = weighting * (prediction - noise).pow(2)
         total_loss = utils.masked_average(
-            weighting * error_noise, mask
+            weighted_error/density, mask
         )
 
         # Log losses
@@ -170,15 +186,16 @@ class UnconditionalModule(LightningModule):
                  prog_bar=True)
 
         # Estimate auxiliary data loss
-        state = (noised_latent-var_t.sqrt()*prediction) / (1-var_t).sqrt()
+        state = (noised_latent-noise_var.sqrt()*prediction) \
+                / (1-noise_var).sqrt()
         data_abs_err = (state-data).abs()
         data_loss = utils.masked_average(data_abs_err, mask)
         self.log(f'{prefix}/data_loss', data_loss, prog_bar=False,
                  batch_size=batch_size)
         return {
             "loss": total_loss,
-            "sampled_time": sampled_time,
-            "diff_sq_err": error_noise
+            "gamma": gamma,
+            "weighted_error": weighted_error
         }
 
     def on_train_batch_end(
@@ -188,13 +205,12 @@ class UnconditionalModule(LightningModule):
             batch_idx: int
     ) -> Dict[str, torch.Tensor]:
         density_target = utils.masked_average(
-            outputs["diff_sq_err"].detach(), batch["mask"],
-            dim=tuple(range(1, outputs["diff_sq_err"].dim()))
+            outputs["weighted_error"].detach(), batch["mask"],
+            dim=tuple(range(1, outputs["weighted_error"].dim()))
         )
         self.scheduler.update(
-            outputs["sampled_time"].squeeze(), density_target
+            outputs["gamma"].squeeze(), density_target
         )
-        print(self.scheduler.get_normalized_gamma(torch.linspace(0, 1, 11, device=self.device)))
         return outputs
     
     def training_step(
@@ -239,33 +255,9 @@ class UnconditionalModule(LightningModule):
     def configure_optimizers(
             self
     ) -> "torch.optim.Optimizer":
-        if self.weight_decay is None:
-            optimizer = torch.optim.Adam(
-                params=self.parameters(),
-                lr=self.lr,
-                betas=(0.9, 0.99)
-            )
-        else:
-            diffusion_params = list(
-                self.denoising_network.parameters()
-            ) + list(
-                self.encoder.parameters()
-            ) + list(
-                self.decoder.parameters()
-            )
-            optimizer = torch.optim.AdamW([
-                dict(
-                    params=diffusion_params,
-                    lr=self.lr,
-                    betas=(0.9, 0.99),
-                    weight_decay=self.weight_decay
-                ),
-                dict(
-                    params=list(self.scheduler.parameters()),
-                    lr=1E-3,
-                    betas=(0.9, 0.99),
-                    weight_decay=0.
-                )
-            ]
-            )
+        optimizer = torch.optim.Adam(
+            params=self.parameters(),
+            lr=self.lr,
+            betas=(0.9, 0.99)
+        )
         return optimizer
