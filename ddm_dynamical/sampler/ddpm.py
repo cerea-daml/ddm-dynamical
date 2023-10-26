@@ -30,9 +30,8 @@ class DDPMSampler(BaseSampler):
     ) -> torch.Tensor:
         # Estimate coefficients from scheduler
         prev_step = step-1/self.timesteps
-        norm_gamma_t = self.scheduler.get_normalized_gamma(step)
-        gamma_t = self.scheduler.denormalize_gamma(norm_gamma_t)
-        gamma_s = self.scheduler(step-1/self.timesteps)
+        gamma_t = self.scheduler(step)
+        gamma_s = self.scheduler(prev_step)
         var_t = torch.sigmoid(-gamma_t)
         alpha_s_sq = torch.sigmoid(gamma_s)
 
@@ -51,19 +50,18 @@ class DDPMSampler(BaseSampler):
         ).sqrt()
 
         # Estimate tensors
-        time_tensor = torch.ones(
+        norm_gamma_t = torch.ones(
             in_data.size(0), 1, device=in_data.device, dtype=in_data.dtype
-        ) * step
-        norm_gamma_t = torch.full_like(time_tensor, norm_gamma_t)
+        ) * self.scheduler.normalize_gamma(gamma_t)
         prediction = self.denoising_network(
             in_data, normalized_gamma=norm_gamma_t, mask=mask, **conditioning
         )
         state = self.proj_func(
             prediction=prediction,
             in_data=in_data,
-            alpha_t=alpha_t,
-            sigma_t=sigma_t,
-            time_tensor=time_tensor,
+            alpha=alpha_t,
+            sigma=sigma_t,
+            norm_gamma=norm_gamma_t,
             mask=mask,
             **conditioning
         )
