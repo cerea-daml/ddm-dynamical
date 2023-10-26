@@ -16,9 +16,11 @@ import logging
 # External modules
 import torch
 import numpy as np
+from tqdm import tqdm
 
 # Internal modules
 from ddm_dynamical.scheduler.binarized_scheduler import BinarizedScheduler
+from ddm_dynamical.scheduler.cosine_scheduler import CosineScheduler
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -250,3 +252,17 @@ class TestBinarizedScheduler(unittest.TestCase):
         self.scheduler.update(gammas, target_values)
         torch.testing.assert_close(self.scheduler.bin_times, bin_times)
 
+    def test_binarized_can_approx_cosine(self):
+        test_times = torch.linspace(0, 1, 1001)
+        self.scheduler.ema_rate = 0.99
+        target_scheduler = CosineScheduler()
+        target_gammas = target_scheduler(test_times)
+        old_gammas = self.scheduler(test_times)
+        self.assertGreater((old_gammas-target_gammas).pow(2).mean(), 1E-5)
+        for _ in range(1000):
+            timesteps = torch.rand(1024)
+            gamma = self.scheduler(timesteps)
+            target_values = target_scheduler.get_density(gamma)
+            self.scheduler.update(gamma, target_values)
+        new_gammas = self.scheduler(test_times)
+        self.assertLess((new_gammas-target_gammas).pow(2).mean(), 1E-5)
