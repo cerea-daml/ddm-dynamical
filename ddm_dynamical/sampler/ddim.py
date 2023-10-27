@@ -84,8 +84,9 @@ class DDIMSampler(BaseSampler):
         norm_gamma_t = torch.ones(
             in_data.size(0), 1, device=in_data.device, dtype=in_data.dtype
         ) * self.scheduler.normalize_gamma(gamma_t)
+        in_tensor = torch.cat((in_data, *conditioning.values()), dim=1)
         prediction = self.denoising_network(
-            in_data, normalized_gamma=norm_gamma_t, mask=mask, **conditioning
+            in_tensor, normalized_gamma=norm_gamma_t, mask=mask
         )
         state = self.proj_func(
             prediction=prediction,
