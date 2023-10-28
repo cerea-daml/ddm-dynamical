@@ -24,7 +24,6 @@ main_logger = logging.getLogger(__name__)
 class BinarizedScheduler(NoiseScheduler):
     def __init__(
             self,
-            values=None,
             n_bins: int = 100,
             gamma_min: float = -10,
             gamma_max: float = 10,
@@ -41,37 +40,26 @@ class BinarizedScheduler(NoiseScheduler):
             "bin_limits", torch.linspace(gamma_min, gamma_max, n_bins+1)
         )
         self.register_buffer(
-            "_bin_values", torch.ones(n_bins)
+            "bin_values", torch.ones(n_bins)
         )
         self.register_buffer(
             "_bin_times", torch.linspace(1, 0, n_bins+1)
         )
-        self.bin_values = values
+        self.pdf_norm = 1.
 
     @property
     def bin_times(self) -> torch.Tensor:
         return self._bin_times
 
-    @property
-    def bin_values(self) -> torch.Tensor:
-        return self._bin_values
-
-    @bin_values.setter
-    def bin_values(self, new_values) -> torch.Tensor:
-        if new_values is None:
-            new_values = torch.ones(self.n_bins)
-        elif not isinstance(new_values, (torch.Tensor, torch.nn.Parameter)):
-            new_values = torch.tensor(new_values)
-        self._bin_values = new_values
-        self._update_times()
-
     def _update_times(self):
-        bin_times = torch.cumsum(-self._bin_values, dim=0)
+        bin_times = torch.cumsum(-self.bin_values, dim=0)
+        bin_times *= (self.gamma_max-self.gamma_min)/self.n_bins
         bin_times = torch.cat(
             (torch.zeros(1, device=bin_times.device), bin_times),
             dim=0
         )
-        self._bin_times = bin_times / bin_times[-1].abs() + 1
+        self.pdf_norm = bin_times[-1].abs().item()
+        self._bin_times = bin_times / self.pdf_norm + 1
 
     def get_bin_num(self, gamma: torch.Tensor) -> torch.Tensor:
         return (
@@ -88,7 +76,7 @@ class BinarizedScheduler(NoiseScheduler):
 
     def get_density(self, gamma: torch.Tensor) -> torch.Tensor:
         bin_num = self.get_bin_num(gamma)
-        return self.bin_values[bin_num] / self.bin_values.mean()
+        return self.bin_values[bin_num] / self.pdf_norm
 
     def forward(self, timesteps: torch.Tensor) -> torch.Tensor:
         idx_left = self.get_left_time(timesteps)

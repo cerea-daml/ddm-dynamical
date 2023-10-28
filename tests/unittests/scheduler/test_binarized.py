@@ -32,56 +32,20 @@ class TestBinarizedScheduler(unittest.TestCase):
     def setUp(self) -> None:
         self.scheduler = BinarizedScheduler()
 
-    def test_values_can_be_set(self):
-        values = torch.randn(100)**2
-        new_scheduler = BinarizedScheduler(values=values)
-        torch.testing.assert_close(new_scheduler.bin_values, values)
-
-    def test_values_is_set_to_ones_if_none(self):
-        new_scheduler = BinarizedScheduler(values=None)
-        torch.testing.assert_close(new_scheduler.bin_values, torch.ones(100))
-
-    def test_values_is_transferred_into_torch(self):
-        values = np.random.normal(size=100)**2
-        new_scheduler = BinarizedScheduler(values=values)
-        torch.testing.assert_close(
-            new_scheduler.bin_values, torch.tensor(values)
-        )
-        values = list(values)
-        new_scheduler = BinarizedScheduler(values=values)
-        torch.testing.assert_close(
-            new_scheduler.bin_values, torch.tensor(values)
-        )
-
     def test_bin_times_returns_bin_times(self):
         new_times = torch.rand(101)
         self.scheduler._bin_times = new_times
         torch.testing.assert_close(self.scheduler.bin_times, new_times)
 
     def test_update_times_updates_time(self):
-        self.scheduler._bin_values = torch.randn(100)**2
-        bin_times = torch.cumsum(
-            torch.flip(self.scheduler._bin_values, dims=(0, )), dim=0
-        )
+        self.scheduler.bin_values = torch.randn(100)**2
+        bin_times = torch.cumsum(-self.scheduler.bin_values, dim=0)
         bin_times = torch.cat(
             (torch.zeros(1, device=bin_times.device), bin_times),
             dim=0
         )
-        bin_times = torch.flip(bin_times / bin_times[-1], dims=(0, ))
+        bin_times = (bin_times-bin_times[-1]) / bin_times[-1].abs()
         self.scheduler._update_times()
-        torch.testing.assert_close(self.scheduler.bin_times, bin_times)
-
-    def test_setting_new_values_updates_bin_times(self):
-        values = torch.randn(100)**2
-        bin_times = torch.cumsum(
-            torch.flip(values, dims=(0, )), dim=0
-        )
-        bin_times = torch.cat(
-            (torch.zeros(1, device=bin_times.device), bin_times),
-            dim=0
-        )
-        bin_times = torch.flip(bin_times / bin_times[-1], dims=(0, ))
-        self.scheduler.bin_values = values
         torch.testing.assert_close(self.scheduler.bin_times, bin_times)
 
     def test_bin_num_returns_correct_bin(self):
@@ -122,7 +86,7 @@ class TestBinarizedScheduler(unittest.TestCase):
         test_gamma = (1-test_time) * 20 - 10
         bin_num = self.scheduler.get_bin_num(test_gamma)
 
-        target_density = self.scheduler.bin_values[bin_num]
+        target_density = self.scheduler.bin_values[bin_num] / self.scheduler.pdf_norm
         returned_density = self.scheduler.get_density(test_gamma)
         torch.testing.assert_close(returned_density, target_density)
 
