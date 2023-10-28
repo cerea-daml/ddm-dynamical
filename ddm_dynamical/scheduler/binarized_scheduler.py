@@ -66,14 +66,12 @@ class BinarizedScheduler(NoiseScheduler):
         self._update_times()
 
     def _update_times(self):
-        bin_times = torch.cumsum(
-            torch.flip(self.bin_values, dims=(0,)), dim=0
-        )
+        bin_times = torch.cumsum(-self._bin_values, dim=0)
         bin_times = torch.cat(
             (torch.zeros(1, device=bin_times.device), bin_times),
             dim=0
         )
-        self._bin_times = torch.flip(bin_times / bin_times[-1], dims=(0,))
+        self._bin_times = bin_times / bin_times[-1].abs() + 1
 
     def get_bin_num(self, gamma: torch.Tensor) -> torch.Tensor:
         return (
@@ -90,7 +88,7 @@ class BinarizedScheduler(NoiseScheduler):
 
     def get_density(self, gamma: torch.Tensor) -> torch.Tensor:
         bin_num = self.get_bin_num(gamma)
-        return self.bin_values[bin_num]
+        return self.bin_values[bin_num] / self.bin_values.mean()
 
     def forward(self, timesteps: torch.Tensor) -> torch.Tensor:
         idx_left = self.get_left_time(timesteps)
