@@ -56,6 +56,22 @@ class BaseSampler(torch.nn.Module):
         )
         return prior_sample
 
+    def estimate_prediction(
+            self,
+            in_data: torch.Tensor,
+            gamma: torch.Tensor,
+            mask: torch.Tensor,
+            **conditioning: torch.Tensor
+    ) -> torch.Tensor:
+        norm_gamma = torch.ones(
+            in_data.size(0), 1, device=in_data.device, dtype=in_data.dtype
+        ) * self.scheduler.normalize_gamma(gamma)
+        in_tensor = torch.cat((in_data, *conditioning.values()), dim=1)
+        prediction = self.denoising_network(
+            in_tensor, normalized_gamma=norm_gamma, mask=mask
+        )
+        return prediction
+
     @torch.no_grad()
     def sample(
             self,

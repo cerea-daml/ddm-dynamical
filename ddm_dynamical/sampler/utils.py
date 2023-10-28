@@ -24,7 +24,7 @@ def project_to_state(
         in_data: torch.Tensor,
         alpha: torch.Tensor,
         sigma: torch.Tensor,
-        norm_gamma: torch.Tensor,
+        gamma: torch.Tensor,
         mask: torch.Tensor = None,
         **conditioning
 ) -> torch.Tensor:
