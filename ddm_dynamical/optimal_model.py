@@ -10,6 +10,7 @@
 
 # System modules
 import logging
+from typing import Iterable
 
 # External modules
 import torch
@@ -24,7 +25,8 @@ class OptimalModel(torch.nn.Module):
             self,
             training_data: torch.Tensor,
             gamma_min: float = -15,
-            gamma_max: float = 10
+            gamma_max: float = 10,
+            dims: Iterable = (-3, -2, 1)
     ) -> None:
         """
         The optimal denoising model following Karras et al. (2022). Assumes that
@@ -34,17 +36,18 @@ class OptimalModel(torch.nn.Module):
         self.training_data = training_data
         self.gamma_min = gamma_min
         self.gamma_max = gamma_max
+        self.dims = dims
 
-    def optimal_denoiser(self, state, dist, mask) -> torch.Tensor:
+    def optimal_denoiser(self, state, var, mask) -> torch.Tensor:
         """
         Estimation of the optimal denoiser.
         """
-        error = state[:, None, ...] - train_norm
-        log_prob = dist.log_prob(error) * mask
-        sum_channels = [d+2 for d in range(state.dim()-1)]
-        log_prob = log_prob.sum(dim=sum_channels, keepdims=True)
-        prob = torch.softmax(log_prob, dim=1)
-        denoised_state = (prob * train_norm).sum(dim=1)
+        error = state[:, None, ...] - self.training_data
+        error = error * mask
+        sse = error.pow(2).sum(dim=self.dims, keepdims=True)
+        log_likeli = -sse / (2 * var)
+        prob = torch.softmax(log_likeli, dim=1)
+        denoised_state = (prob * self.training_data).sum(dim=1)
         return denoised_state
 
     def forward(
@@ -65,14 +68,9 @@ class OptimalModel(torch.nn.Module):
         alpha = (1 - variance).sqrt()
         sigma = variance.sqrt()
         var_tilde = 1 / gamma.exp()
-        dist = torch.distributions.Normal(
-            torch.tensor([0], device=in_tensor.device),
-            torch.tensor([var_tilde.sqrt()], device=in_tensor.device),
-            validate_args=False
-        )
 
         in_tensor_exploded = in_tensor * (1 + var_tilde).sqrt()
-        state = optimal_denoiser(in_tensor_exploded, dist) * mask
+        state = self.optimal_denoiser(in_tensor_exploded, var_tilde, mask)
 
         eps = (in_tensor - alpha * state) / sigma
         return eps * mask
