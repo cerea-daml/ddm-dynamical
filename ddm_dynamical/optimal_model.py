@@ -26,7 +26,7 @@ class OptimalModel(torch.nn.Module):
             training_data: torch.Tensor,
             gamma_min: float = -15,
             gamma_max: float = 10,
-            dims: Iterable = (-3, -2, 1)
+            dims: Iterable = (-3, -2, -1)
     ) -> None:
         """
         The optimal denoising model following Karras et al. (2022). Assumes that
