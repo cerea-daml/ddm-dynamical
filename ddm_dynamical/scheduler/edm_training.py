@@ -43,7 +43,7 @@ class EDMTrainingScheduler(NoiseScheduler):
             self,
             gamma,
     ) -> torch.Tensor:
-        return self.density_dist.cdf(-gamma)
+        return self.density_dist.cdf(-torch.tensor(gamma))
 
     def get_density(self, gamma: torch.Tensor) -> torch.Tensor:
         density = self.density_dist.log_prob(gamma).exp()
