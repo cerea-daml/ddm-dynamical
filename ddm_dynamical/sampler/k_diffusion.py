@@ -62,7 +62,12 @@ class KDiffusionSampler(BaseSampler):
         gamma = torch.log(1/var_exploded)
         scaled_in_state = in_state / (var_exploded + 1).sqrt()
         prediction = self.estimate_prediction(
-            scaled_in_state, gamma=gamma, mask=mask, **conditioning
+            in_data=scaled_in_state,
+            alpha=alpha,
+            sigma=sigma,
+            gamma=gamma,
+            mask=mask,
+            **conditioning
         )
         return self.proj_func(
             prediction,

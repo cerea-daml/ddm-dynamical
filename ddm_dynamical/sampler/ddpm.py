@@ -51,7 +51,12 @@ class DDPMSampler(BaseSampler):
 
         # Estimate tensors
         prediction = self.estimate_prediction(
-            in_data=in_data, gamma=gamma_t, mask=mask, **conditioning
+            in_data=in_data,
+            alpha=alpha_t,
+            sigma=sigma_t,
+            gamma=gamma_t,
+            mask=mask,
+            **conditioning
         )
         state = self.proj_func(
             prediction=prediction,
