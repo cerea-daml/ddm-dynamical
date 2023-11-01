@@ -18,7 +18,7 @@ import torch
 from tqdm.autonotebook import tqdm
 
 # Internal modules
-from .utils import project_to_state
+from .defaults import *
 
 
 logger = logging.getLogger(__name__)
@@ -30,15 +30,16 @@ class BaseSampler(torch.nn.Module):
             scheduler: "ddm_dynamical.scheduler.noise_scheduler.NoiseScheduler",
             timesteps: int = 250,
             denoising_network: torch.nn.Module = None,
+            pre_func: Callable = None,
+            post_func: Callable = None,
             proj_func: Callable = None,
             pbar: bool = True,
     ):
         super().__init__()
         self.denoising_network = denoising_network
-        if proj_func is None:
-            self.proj_func = project_to_state
-        else:
-            self.proj_func = proj_func
+        self.pre_func = pre_func or default_preprocessing
+        self.post_func = post_func or default_postprocessing
+        self.proj_func = proj_func or default_projection
         self.timesteps = timesteps
         self.scheduler = scheduler
         self.pbar = pbar
@@ -58,15 +59,13 @@ class BaseSampler(torch.nn.Module):
 
     def estimate_prediction(
             self,
-            in_data: torch.Tensor,
+            in_tensor: torch.Tensor,
             gamma: torch.Tensor,
             mask: torch.Tensor,
-            **conditioning: torch.Tensor
     ) -> torch.Tensor:
         norm_gamma = torch.ones(
-            in_data.size(0), 1, device=in_data.device, dtype=in_data.dtype
+            in_tensor.size(0), 1, device=in_tensor.device, dtype=in_tensor.dtype
         ) * self.scheduler.normalize_gamma(gamma)
-        in_tensor = torch.cat((in_data, *conditioning.values()), dim=1)
         prediction = self.denoising_network(
             in_tensor, normalized_gamma=norm_gamma, mask=mask
         )
