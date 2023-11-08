@@ -100,5 +100,5 @@ class KDiffusionSampler(BaseSampler):
             in_tensor_exploded,
             sigma_tildes,
             extra_args=dict(mask=mask, **conditioning),
-            disable=~self.pbar
+            disable=None if self.pbar else True
         )
