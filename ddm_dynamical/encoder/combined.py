@@ -23,7 +23,7 @@ main_logger = logging.getLogger(__name__)
 class CombinedEncoder(torch.nn.Module):
     def __init__(self, base_encoders: Dict[str, torch.nn.Module]):
         super().__init__()
-        self.base_encoders = base_encoders
+        self.base_encoders = torch.nn.ModuleDict(base_encoders)
 
     def forward(
             self,

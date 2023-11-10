@@ -23,7 +23,7 @@ main_logger = logging.getLogger(__name__)
 class CombinedDecoder(torch.nn.Module):
     def __init__(self, base_decoders: Dict[str, torch.nn.Module]):
         super().__init__()
-        self.base_decoders = base_decoders
+        self.base_decoders = torch.nn.ModuleDict(base_decoders)
 
     @property
     def splits(self) -> List[int]:
