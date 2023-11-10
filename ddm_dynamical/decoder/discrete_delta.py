@@ -41,7 +41,7 @@ class LowerDeltaDecoder(DeltaDecoder):
             first_guess: torch.Tensor,
             mask: torch.Tensor
     ):
-        prediction = super()(in_tensor[:, [0]], first_guess, mask)
+        prediction = super().forward(in_tensor[:, [0]], first_guess, mask)
         unbounded = in_tensor[:, [1]] > 0
         return torch.where(unbounded, prediction, self.bound)
 
@@ -75,7 +75,6 @@ class LowerDeltaDecoder(DeltaDecoder):
         )
 
         ## Classification loss for bounded
-
         loss_class = F.binary_cross_entropy_with_logits(
             in_tensor[:, [1]], unbounded, reduction="none"
         )
@@ -104,7 +103,7 @@ class BoundedDeltaDecoder(DeltaDecoder):
             mask: torch.Tensor
     ):
         # Get prediction
-        prediction = super()(
+        prediction = super().forward(
             in_tensor[:, [0]], first_guess, mask
         ).squeeze(dim=1)
 
