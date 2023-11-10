@@ -32,5 +32,10 @@ class GaussianEncoder(torch.nn.Module):
         self.std = std
         self.eps = eps
 
-    def forward(self, in_tensor: torch.Tensor) -> torch.Tensor:
-        return (in_tensor-self.mean) / (self.std + self.eps)
+    def forward(
+            self,
+            in_tensor: torch.Tensor,
+            mask: torch.Tensor
+    ) -> torch.Tensor:
+        normed_tensor = (in_tensor-self.mean) / (self.std + self.eps)
+        return mask * normed_tensor

@@ -25,10 +25,14 @@ class CombinedEncoder(torch.nn.Module):
         super().__init__()
         self.base_encoder = base_encoder
 
-    def forward(self, in_tensor: torch.Tensor) -> torch.Tensor:
+    def forward(
+            self,
+            in_tensor: torch.Tensor,
+            mask: torch.Tensor
+    ) -> torch.Tensor:
         return torch.cat(
             [
-                encoder(in_tensor[:, [k]])
+                encoder(in_tensor[:, [k]], mask)
                 for k, encoder in enumerate(self.base_encoders)
             ], dim=1
         )
