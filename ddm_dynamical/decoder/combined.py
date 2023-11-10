@@ -44,7 +44,7 @@ class CombinedDecoder(torch.nn.Module):
             mask: torch.Tensor
     ):
         return torch.cat([
-            decoder(in_tensor, first_guess[:, k], mask)
+            decoder(in_tensor, first_guess[:, [k]], mask)
             for k, (decoder, in_tensor)
             in self.enumerate_decoder_in(in_tensor)
         ], dim=1)
