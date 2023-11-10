@@ -10,7 +10,7 @@
 
 # System modules
 import logging
-from typing import List
+from typing import Dict
 
 # External modules
 import torch.nn
@@ -21,7 +21,7 @@ main_logger = logging.getLogger(__name__)
 
 
 class CombinedEncoder(torch.nn.Module):
-    def __init__(self, base_encoders: List[torch.nn.Module]):
+    def __init__(self, base_encoders: Dict[str, torch.nn.Module]):
         super().__init__()
         self.base_encoders = base_encoders
 
@@ -33,6 +33,6 @@ class CombinedEncoder(torch.nn.Module):
         return torch.cat(
             [
                 encoder(in_tensor[:, [k]], mask)
-                for k, encoder in enumerate(self.base_encoders)
+                for k, encoder in enumerate(self.base_encoders.values())
             ], dim=1
         )
