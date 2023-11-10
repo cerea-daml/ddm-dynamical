@@ -10,7 +10,7 @@
 
 # System modules
 import logging
-from math import log
+from math import log, inf
 from typing import Union, Tuple
 
 # External modules
@@ -28,26 +28,37 @@ class GaussianDecoder(torch.nn.Module):
             self,
             mean: Union[float, torch.Tensor] = 0.,
             std: Union[float, torch.Tensor] = 1.,
-            data_shape: Tuple[int, ] = (1, ),
+            lower_bound: float = -inf,
+            upper_bound: float = inf,
+            std_shape: Tuple[int, ...] = (1, 1, 1),
+            update_std: bool = False,
             eps: float = 1E-9
     ):
         super().__init__()
         self.mean = mean
         self.std = std
-        self.logvar = torch.nn.Parameter(
-            torch.ones(*data_shape) * log(std**2)
+        self.logstd = torch.nn.Parameter(
+            torch.ones(*std_shape) * log(std),
+            requires_grad=~update_std
         )
+        self.lower_bound = lower_bound
+        self.upper_bound = upper_bound
         self.eps = eps
 
     def forward(
-            self, in_tensor: torch.Tensor, mask: torch.Tensor = None
+            self,
+            in_tensor: torch.Tensor,
+            first_guess: torch.Tensor,
+            mask: torch.Tensor
     ) -> torch.Tensor:
-        return in_tensor * self.std + self.mean
+        prediction = in_tensor * self.std + self.mean
+        return prediction.clamp(min=self.lower_bound, max=self.upper_bound)
 
     def log_likelihood(
             self,
             in_tensor: torch.Tensor,
+            first_guess: torch.Tensor,
             target: torch.Tensor
     ) -> torch.Tensor:
-        dist = Normal(target, (self.logvar*0.5).exp())
-        return dist.log_prob(in_tensor)
+        dist = Normal(in_tensor, self.logstd.exp())
+        return dist.log_prob(target)
