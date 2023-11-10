@@ -10,7 +10,7 @@
 
 # System modules
 import logging
-from typing import Dict, List, Tuple
+from typing import List, Tuple
 
 # External modules
 import torch.nn
@@ -21,7 +21,7 @@ main_logger = logging.getLogger(__name__)
 
 
 class CombinedDecoder(torch.nn.Module):
-    def __init__(self, base_decoders: Dict[str, torch.nn.Module]):
+    def __init__(self, base_decoders: List[torch.nn.Module]):
         super().__init__()
         self.base_decoders = base_decoders
 
@@ -34,7 +34,7 @@ class CombinedDecoder(torch.nn.Module):
             in_tensor: torch.Tensor
     ) -> enumerate[int, Tuple[torch.nn.Module, torch.Tensor]]:
         splitted_tensor = in_tensor.split(self.splits, dim=1)
-        decoder_in = zip(self.base_decoders.values(), splitted_tensor)
+        decoder_in = zip(self.base_decoders, splitted_tensor)
         return enumerate(decoder_in)
 
     def forward(
