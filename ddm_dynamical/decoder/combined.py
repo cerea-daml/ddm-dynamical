@@ -10,7 +10,7 @@
 
 # System modules
 import logging
-from typing import Iterable
+from typing import Dict, List, Tuple
 
 # External modules
 import torch.nn
@@ -21,22 +21,60 @@ main_logger = logging.getLogger(__name__)
 
 
 class CombinedDecoder(torch.nn.Module):
-    def __init__(self, base_decoders: Iterable[torch.nn.Module]):
+    def __init__(self, base_decoders: Dict[str, torch.nn.Module]):
         super().__init__()
         self.base_decoders = base_decoders
 
+    @property
+    def splits(self) -> List[int, ...]:
+        return [d.n_dims for d in self.base_decoders]
+
+    def enumerate_decoder_in(
+            self,
+            in_tensor: torch.Tensor
+    ) -> enumerate[int, Tuple[torch.nn.Module, torch.Tensor]]:
+        splitted_tensor = in_tensor.split(self.splits, dim=1)
+        decoder_in = zip(self.base_decoders.values(), splitted_tensor)
+        return enumerate(decoder_in)
+
     def forward(
-            self, in_tensor: torch.Tensor, mask: torch.Tensor = None
-    ) -> torch.Tensor:
-        if in_tensor.size(1) != len(self.base_decoders):
-            raise ValueError(
-                "The number of channels and base decoder have to be the same!"
+            self,
+            in_tensor: torch.Tensor,
+            first_guess: torch.Tensor,
+            mask: torch.Tensor
+    ):
+        return torch.cat([
+            decoder(in_tensor, first_guess[:, k], mask)
+            for k, (decoder, in_tensor)
+            in self.enumerate_decoder_in(in_tensor)
+        ], dim=1)
+
+    def update(
+            self,
+            in_tensor: torch.Tensor,
+            first_guess: torch.Tensor,
+            target: torch.Tensor,
+            mask: torch.Tensor
+    ):
+        for k, (decoder, in_tensor)\
+                in self.enumerate_decoder_in(in_tensor):
+            decoder.update(
+                in_tensor, first_guess[:, [k]], target[:, [k]], mask
             )
-        return torch.cat(
-            [
-                decoder(in_tensor[:, k])
-                for k, decoder in enumerate(self.base_decoders)
-            ], dim=1
+
+    def loss(
+            self,
+            in_tensor: torch.Tensor,
+            first_guess: torch.Tensor,
+            target: torch.Tensor,
+            mask: torch.Tensor
+    ) -> torch.Tensor:
+        return torch.sum(
+            torch.stack([
+                decoder.loss(
+                    in_tensor, first_guess[:, [k]], target[:, [k]], mask
+                )
+                for k, (decoder, in_tensor)
+                in self.enumerate_decoder_in(in_tensor)
+            ])
         )
-
-
