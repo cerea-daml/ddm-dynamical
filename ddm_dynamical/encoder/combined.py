@@ -10,7 +10,7 @@
 
 # System modules
 import logging
-from typing import Iterable
+from typing import Dict
 
 # External modules
 import torch.nn
@@ -21,18 +21,14 @@ main_logger = logging.getLogger(__name__)
 
 
 class CombinedEncoder(torch.nn.Module):
-    def __init__(self, base_encoders: Iterable[torch.nn.Module]):
+    def __init__(self, base_encoder: Dict[str, torch.nn.Module]):
         super().__init__()
-        self.base_encoders = base_encoders
+        self.base_encoder = base_encoder
 
     def forward(self, in_tensor: torch.Tensor) -> torch.Tensor:
-        if in_tensor.size(1) != len(self.base_encoders):
-            raise ValueError(
-                "The number of channels and base encoders have to be the same!"
-            )
         return torch.cat(
             [
-                encoder(in_tensor[:, k])
-                for k, encoder in enumerate(self.base_encoders)
+                encoder(in_tensor[:, [k]])
+                for k, encoder in enumerate(self.base_encoders.values())
             ], dim=1
         )
