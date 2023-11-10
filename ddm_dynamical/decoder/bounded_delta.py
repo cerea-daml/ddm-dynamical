@@ -159,9 +159,9 @@ class BoundedDeltaDecoder(DeltaDecoder):
         target_one_hot = torch.stack(
             [lower_bounded, upper_bounded, unbounded], dim=-1
         ).squeeze(dim=1)
-        target_idx = torch.argmax(target_one_hot, dim=1)
+        target_idx = torch.argmax(target_one_hot, dim=-1)
         loss_class = F.cross_entropy(
             in_tensor[:, 1:], target_idx, reduction="none"
         )
-        loss_class = masked_average(loss_class, mask)
+        loss_class = masked_average(loss_class[:, None], mask)
         return loss_reg + loss_class
