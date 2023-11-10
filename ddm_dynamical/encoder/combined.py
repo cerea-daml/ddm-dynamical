@@ -21,9 +21,9 @@ main_logger = logging.getLogger(__name__)
 
 
 class CombinedEncoder(torch.nn.Module):
-    def __init__(self, base_encoder: List[torch.nn.Module]):
+    def __init__(self, base_encoders: List[torch.nn.Module]):
         super().__init__()
-        self.base_encoder = base_encoder
+        self.base_encoders = base_encoders
 
     def forward(
             self,
