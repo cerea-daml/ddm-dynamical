@@ -20,6 +20,44 @@ import torch
 main_logger = logging.getLogger(__name__)
 
 
+def sample_time(
+        template_tensor: torch.Tensor
+) -> torch.Tensor:
+    """
+    Samples time indices as tensor between [0, 1]. The time indices are
+    equidistant distributed to reduce the training variance as proposed in
+    Kingma et al., 2021.
+
+    Parameters
+    ----------
+    template_tensor : torch.Tensor
+        The template tensor with `n` dimensions and shape (batch size, *).
+
+    Returns
+    -------
+    sampled_time : torch.Tensor
+        The time tensor sampled for each sample independently. The resulting
+        shape is (batch size, *) with `n` dimensions filled by ones. The
+        tensor lies on the same device as the input.
+    """
+    time_shape = torch.Size(
+        [template_tensor.size(0)] + [1, ] * (template_tensor.ndim - 1)
+    )
+    # Draw initial time
+    time_shift = torch.randn(
+        1, dtype=template_tensor.dtype, device=template_tensor.device
+    )
+    # Equidistant timing
+    sampled_time = torch.linspace(
+        0, 1, template_tensor.size(0) + 1,
+        dtype=template_tensor.dtype, device=template_tensor.device
+    )[:template_tensor.size(0)]
+    # Estimate time
+    sampled_time = (time_shift + sampled_time) % 1
+    sampled_time = sampled_time.reshape(time_shape)
+    return sampled_time
+
+
 def masked_average(
         in_tensor: torch.Tensor,
         mask: torch.Tensor = None,
