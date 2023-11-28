@@ -12,6 +12,7 @@ dependencies:
   - ipykernel
   - ipywidgets
   - pip:
+      - k_diffusion
       - rich
       - pykeops
       - torch
