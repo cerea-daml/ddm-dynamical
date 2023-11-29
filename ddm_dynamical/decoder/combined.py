@@ -44,7 +44,11 @@ class CombinedDecoder(torch.nn.Module):
             mask: torch.Tensor
     ):
         return torch.cat([
-            decoder(in_tensor, first_guess[:, [k]], mask)
+            decoder(
+                in_tensor,
+                first_guess[:, [k]] if first_guess is not None else None,
+                mask
+            )
             for k, (decoder, in_tensor)
             in self.enumerate_decoder_in(in_tensor)
         ], dim=1)
@@ -59,7 +63,10 @@ class CombinedDecoder(torch.nn.Module):
         for k, (decoder, in_tensor)\
                 in self.enumerate_decoder_in(in_tensor):
             decoder.update(
-                in_tensor, first_guess[:, [k]], target[:, [k]], mask
+                in_tensor,
+                first_guess[:, [k]] if first_guess is not None else None,
+                target[:, [k]],
+                mask
             )
 
     def loss(
@@ -72,7 +79,10 @@ class CombinedDecoder(torch.nn.Module):
         return torch.sum(
             torch.stack([
                 decoder.loss(
-                    in_tensor, first_guess[:, [k]], target[:, [k]], mask
+                    in_tensor,
+                    first_guess[:, [k]] if first_guess is not None else None,
+                    target[:, [k]],
+                    mask
                 )
                 for k, (decoder, in_tensor)
                 in self.enumerate_decoder_in(in_tensor)
