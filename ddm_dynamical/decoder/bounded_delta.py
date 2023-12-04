@@ -116,7 +116,7 @@ class BoundedDeltaDecoder(DeltaDecoder):
 
         # Convert logits to one hot tensor
         case_idx = torch.argmax(in_tensor[:, 1:], dim=1, keepdim=False)
-        case_mask = F.one_hot(case_idx)
+        case_mask = F.one_hot(case_idx, num_classes=3)
         return (case_mask * prediction_cases).sum(dim=-1)[:, None]
 
     def update(
