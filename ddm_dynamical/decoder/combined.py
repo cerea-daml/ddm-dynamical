@@ -76,7 +76,7 @@ class CombinedDecoder(torch.nn.Module):
             target: torch.Tensor,
             mask: torch.Tensor
     ) -> torch.Tensor:
-        return torch.sum(
+        return torch.mean(
             torch.stack([
                 decoder.loss(
                     in_tensor,
