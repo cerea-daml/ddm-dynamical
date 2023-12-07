@@ -35,6 +35,7 @@ class GaussianDecoder(torch.nn.Module):
             upper_bound: float = inf,
             std_dims: int = 3,
             ema_rate: float = 1.,
+            stochastic: bool = False
     ):
         super().__init__()
         self.mean = mean
@@ -42,6 +43,7 @@ class GaussianDecoder(torch.nn.Module):
         self.ema_rate = ema_rate
         self.lower_bound = lower_bound
         self.upper_bound = upper_bound
+        self.stochastic = stochastic
         self.register_buffer(
             "scale", torch.ones(*[1]*std_dims) * std,
         )
@@ -61,6 +63,8 @@ class GaussianDecoder(torch.nn.Module):
     ) -> torch.Tensor:
         mean = self.to_mean(in_tensor, first_guess)
         prediction = mask * mean
+        if self.stochastic:
+            prediction.add_(torch.randn_like(prediction) * self.scale)
         return prediction.clamp(min=self.lower_bound, max=self.upper_bound)
 
     def update(
