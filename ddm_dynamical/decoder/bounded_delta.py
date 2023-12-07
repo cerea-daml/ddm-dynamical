@@ -10,13 +10,12 @@
 
 # System modules
 import logging
-from math import inf
-from typing import Union
 
 # External modules
 import torch
 import torch.nn
 import torch.nn.functional as F
+from torch.distributions.utils import logits_to_probs
 
 # Internal modules
 from ..utils import masked_average
@@ -42,7 +41,12 @@ class LowerDeltaDecoder(DeltaDecoder):
             mask: torch.Tensor
     ):
         prediction = super().forward(in_tensor[:, [0]], first_guess, mask)
-        unbounded = in_tensor[:, [1]] > 0
+        if self.stochastic:
+            unbounded = torch.bernoulli(
+                torch.sigmoid(in_tensor[:, [1]])
+            ).bool()
+        else:
+            unbounded = in_tensor[:, [1]] > 0
         return torch.where(unbounded, prediction, self.bound)
 
     def update(
@@ -115,7 +119,11 @@ class BoundedDeltaDecoder(DeltaDecoder):
         ], dim=-1)
 
         # Convert logits to one hot tensor
-        case_idx = torch.argmax(in_tensor[:, 1:], dim=1, keepdim=False)
+        logits = in_tensor[:, 1:]
+        if self.stochastic:
+            gumbel_sample = -torch.log(-torch.log(torch.rand_like(logits)))
+            logits.add_(gumbel_sample)
+        case_idx = torch.argmax(logits, dim=1, keepdim=False)
         case_mask = F.one_hot(case_idx, num_classes=3)
         return (case_mask * prediction_cases).sum(dim=-1)[:, None]
 
