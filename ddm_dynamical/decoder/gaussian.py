@@ -61,10 +61,10 @@ class GaussianDecoder(torch.nn.Module):
             first_guess: torch.Tensor,
             mask: torch.Tensor
     ) -> torch.Tensor:
-        mean = self.to_mean(in_tensor, first_guess)
-        prediction = mask * mean
+        prediction = self.to_mean(in_tensor, first_guess)
         if self.stochastic:
             prediction.add_(torch.randn_like(prediction) * self.scale)
+        prediction = prediction * mask
         return prediction.clamp(min=self.lower_bound, max=self.upper_bound)
 
     def update(
