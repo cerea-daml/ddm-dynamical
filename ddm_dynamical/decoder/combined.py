@@ -28,7 +28,7 @@ class CombinedDecoder(torch.nn.Module):
     ):
         super().__init__()
         self.base_decoders = torch.nn.ModuleDict(base_decoders)
-        for decoder in self.base_decoders.values.values():
+        for decoder in self.base_decoders.values():
             decoder.stochastic = stochastic
 
     @property
