@@ -26,7 +26,7 @@ class NeuralDecoder(BaseDecoder):
             self,
             network: torch.nn.Module,
             physical_decoder: BaseDecoder,
-            stochastic: bool = True
+            stochastic: bool = False
     ):
         super().__init__()
         self.network = network

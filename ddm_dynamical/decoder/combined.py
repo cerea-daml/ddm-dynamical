@@ -24,7 +24,7 @@ class CombinedDecoder(torch.nn.Module):
     def __init__(
             self,
             base_decoders: Dict[str, torch.nn.Module],
-            stochastic: bool = True
+            stochastic: bool = False
     ):
         super().__init__()
         self.base_decoders = torch.nn.ModuleDict(base_decoders)
