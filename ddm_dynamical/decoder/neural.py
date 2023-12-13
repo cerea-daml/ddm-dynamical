@@ -22,10 +22,16 @@ main_logger = logging.getLogger(__name__)
 
 
 class NeuralDecoder(BaseDecoder):
-    def __init__(self, network: torch.nn.Module, physical_decoder: BaseDecoder):
+    def __init__(
+            self,
+            network: torch.nn.Module,
+            physical_decoder: BaseDecoder,
+            stochastic: bool = True
+    ):
         super().__init__()
         self.network = network
         self.physical_decoder = physical_decoder
+        self.physical_decoder.stochastic = stochastic
 
     def forward(
             self,

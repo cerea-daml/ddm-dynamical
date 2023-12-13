@@ -21,9 +21,15 @@ main_logger = logging.getLogger(__name__)
 
 
 class CombinedDecoder(torch.nn.Module):
-    def __init__(self, base_decoders: Dict[str, torch.nn.Module]):
+    def __init__(
+            self,
+            base_decoders: Dict[str, torch.nn.Module],
+            stochastic: bool = True
+    ):
         super().__init__()
         self.base_decoders = torch.nn.ModuleDict(base_decoders)
+        for decoder in self.base_decoders.values:
+            decoder.stochastic = stochastic
 
     @property
     def splits(self) -> List[int]:
