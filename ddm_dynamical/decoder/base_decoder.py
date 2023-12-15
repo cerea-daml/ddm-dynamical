@@ -11,6 +11,7 @@
 # System modules
 import logging
 from abc import abstractmethod
+from typing import Tuple
 
 # External modules
 import torch.nn
