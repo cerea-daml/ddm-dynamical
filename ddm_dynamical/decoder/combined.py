@@ -48,11 +48,11 @@ class CombinedDecoder(torch.nn.Module):
             in_tensor: torch.Tensor,
             first_guess: torch.Tensor,
             mask: torch.Tensor
-    ):
+    ) -> torch.tensor:
         return torch.cat([
             decoder(
                 in_tensor,
-                first_guess[:, [k]] if first_guess is not None else None,
+                first_guess[:, [k]],
                 mask
             )
             for k, (decoder, in_tensor)
@@ -65,12 +65,12 @@ class CombinedDecoder(torch.nn.Module):
             first_guess: torch.Tensor,
             target: torch.Tensor,
             mask: torch.Tensor
-    ):
+    ) -> None:
         for k, (decoder, in_tensor)\
                 in self.enumerate_decoder_in(in_tensor):
             decoder.update(
                 in_tensor,
-                first_guess[:, [k]] if first_guess is not None else None,
+                first_guess[:, [k]],
                 target[:, [k]],
                 mask
             )
@@ -81,16 +81,16 @@ class CombinedDecoder(torch.nn.Module):
             first_guess: torch.Tensor,
             target: torch.Tensor,
             mask: torch.Tensor
-    ) -> torch.Tensor:
-        return torch.mean(
-            torch.stack([
-                decoder.loss(
-                    in_tensor,
-                    first_guess[:, [k]] if first_guess is not None else None,
-                    target[:, [k]],
-                    mask
-                )
-                for k, (decoder, in_tensor)
-                in self.enumerate_decoder_in(in_tensor)
-            ])
-        )
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        loss = []
+        loss_clim = []
+        for k, (decoder, in_tensor) in self.enumerate_decoder_in(in_tensor):
+            curr_loss, curr_clim = decoder.loss(
+                in_tensor,
+                first_guess[:, [k]],
+                target[:, [k]],
+                mask
+            )
+            loss.append(curr_loss)
+            loss_clim.append(curr_clim)
+        return torch.mean(torch.stack(loss)), torch.mean(torch.stack(loss_clim))

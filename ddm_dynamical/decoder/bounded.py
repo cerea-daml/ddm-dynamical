@@ -10,22 +10,25 @@
 
 # System modules
 import logging
+from typing import Tuple
 
 # External modules
 import torch
 import torch.nn
 import torch.nn.functional as F
-from torch.distributions.utils import logits_to_probs
 
 # Internal modules
+from .base_decoder import BaseDecoder
 from ..utils import masked_average
-from .delta import DeltaDecoder
 
 main_logger = logging.getLogger(__name__)
 
 
-class LowerDeltaDecoder(DeltaDecoder):
-    n_dims = 2
+class LowerBoundedDecoder(BaseDecoder):
+    def __init__(self, regression_decoder: BaseDecoder):
+        super().__init__()
+        self.regression_decoder = regression_decoder
+        self.n_dims = 1 + self.regression_decoder.n_dims
 
     @property
     def bound(self) -> float:
@@ -39,8 +42,10 @@ class LowerDeltaDecoder(DeltaDecoder):
             in_tensor: torch.Tensor,
             first_guess: torch.Tensor,
             mask: torch.Tensor
-    ):
-        prediction = super().forward(in_tensor[:, [0]], first_guess, mask)
+    ) -> torch.Tensor:
+        prediction = self.regression_decoder.forward(
+            in_tensor[:, [0]], first_guess, mask
+        )
         if self.stochastic:
             unbounded = torch.bernoulli(
                 torch.sigmoid(in_tensor[:, [1]])
@@ -55,9 +60,9 @@ class LowerDeltaDecoder(DeltaDecoder):
             first_guess: torch.Tensor,
             target: torch.Tensor,
             mask: torch.Tensor
-    ):
+    ) -> None:
         combined_mask = self.target_to_unbounded(target) * mask
-        return super().update(
+        return self.regression_decoder.update(
             in_tensor[:, [0]], first_guess, target, combined_mask
         )
 
@@ -67,11 +72,11 @@ class LowerDeltaDecoder(DeltaDecoder):
             first_guess: torch.Tensor,
             target: torch.Tensor,
             mask: torch.Tensor
-    ) -> torch.Tensor:
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         unbounded = self.target_to_unbounded(target)
 
         ## Regression loss for unbounded
-        loss_reg = super().loss(
+        loss_reg, loss_clim = self.regression_decoder.loss(
             in_tensor=in_tensor[:, [0]],
             first_guess=first_guess,
             target=target,
@@ -83,12 +88,10 @@ class LowerDeltaDecoder(DeltaDecoder):
             in_tensor[:, [1]], unbounded, reduction="none"
         )
         loss_class = masked_average(loss_class, mask)
-        return loss_reg + loss_class
+        return loss_reg + loss_class, loss_clim + loss_class
 
 
-class UpperDeltaDecoder(LowerDeltaDecoder):
-    n_dims = 2
-
+class UpperBoundedDecoder(LowerBoundedDecoder):
     @property
     def bound(self) -> float:
         return self.upper_bound
@@ -97,17 +100,20 @@ class UpperDeltaDecoder(LowerDeltaDecoder):
         return (target < self.upper_bound).to(target)
 
 
-class BoundedDeltaDecoder(DeltaDecoder):
-    n_dims = 4
+class BoundedDecoder(BaseDecoder):
+    def __init__(self, regression_decoder: BaseDecoder):
+        super().__init__()
+        self.regression_decoder = regression_decoder
+        self.n_dims = 3 + self.regression_decoder.n_dims
 
     def forward(
             self,
             in_tensor: torch.Tensor,
             first_guess: torch.Tensor,
             mask: torch.Tensor
-    ):
+    ) -> torch.Tensor:
         # Get prediction
-        prediction = super().forward(
+        prediction = self.regression_decoder.forward(
             in_tensor[:, [0]], first_guess, mask
         ).squeeze(dim=1)
 
@@ -133,12 +139,12 @@ class BoundedDeltaDecoder(DeltaDecoder):
             first_guess: torch.Tensor,
             target: torch.Tensor,
             mask: torch.Tensor
-    ):
+    ) -> None:
         unbounded = torch.logical_and(
             target > self.lower_bound, target < self.upper_bound
         )
         combined_mask = unbounded * mask
-        return super().update(
+        return self.regression_decoder.update(
             in_tensor[:, [0]], first_guess, target, combined_mask
         )
 
@@ -148,7 +154,7 @@ class BoundedDeltaDecoder(DeltaDecoder):
             first_guess: torch.Tensor,
             target: torch.Tensor,
             mask: torch.Tensor
-    ) -> torch.Tensor:
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         lower_bounded = target <= self.lower_bound
         upper_bounded = target >= self.upper_bound
         unbounded = torch.logical_and(
@@ -156,7 +162,7 @@ class BoundedDeltaDecoder(DeltaDecoder):
         ).to(mask)
 
         ## Regression loss for unbounded values
-        loss_reg = super().loss(
+        loss_reg, loss_clim = self.regression_decoder.loss(
             in_tensor=in_tensor[:, [0]],
             first_guess=first_guess,
             target=target,
@@ -172,4 +178,4 @@ class BoundedDeltaDecoder(DeltaDecoder):
             in_tensor[:, 1:], target_idx, reduction="none"
         )
         loss_class = masked_average(loss_class[:, None], mask)
-        return loss_reg + loss_class
+        return loss_reg + loss_class, loss_clim + loss_class

@@ -10,6 +10,7 @@
 
 # System modules
 import logging
+from typing import Tuple
 
 # External modules
 import torch
@@ -58,6 +59,6 @@ class NeuralDecoder(BaseDecoder):
             first_guess: torch.Tensor,
             target: torch.Tensor,
             mask: torch.Tensor
-    ) -> torch.Tensor:
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         decoded = self.network(in_tensor, mask)
         return self.physical_decoder.loss(decoded, first_guess, target, mask)

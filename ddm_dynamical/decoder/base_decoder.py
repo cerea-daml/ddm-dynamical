@@ -49,5 +49,5 @@ class BaseDecoder(torch.nn.Module):
             first_guess: torch.Tensor,
             target: torch.Tensor,
             mask: torch.Tensor
-    ) -> torch.Tensor:
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         pass
