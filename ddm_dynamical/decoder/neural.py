@@ -29,7 +29,7 @@ class NeuralDecoder(BaseDecoder):
             physical_decoder: BaseDecoder,
             stochastic: bool = False
     ):
-        super().__init__()
+        super().__init__(stochastic=stochastic)
         self.network = network
         self.physical_decoder = physical_decoder
         self.physical_decoder.stochastic = stochastic

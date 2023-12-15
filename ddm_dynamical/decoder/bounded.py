@@ -25,9 +25,14 @@ main_logger = logging.getLogger(__name__)
 
 
 class LowerBoundedDecoder(BaseDecoder):
-    def __init__(self, regression_decoder: BaseDecoder):
-        super().__init__()
+    def __init__(
+            self,
+            regression_decoder: BaseDecoder,
+            stochastic: bool = False
+    ):
+        super().__init__(stochastic=stochastic)
         self.regression_decoder = regression_decoder
+        self.regression_decoder.stochastic = self.stochastic
         self.n_dims = 1 + self.regression_decoder.n_dims
 
     @property
@@ -101,9 +106,14 @@ class UpperBoundedDecoder(LowerBoundedDecoder):
 
 
 class BoundedDecoder(BaseDecoder):
-    def __init__(self, regression_decoder: BaseDecoder):
-        super().__init__()
+    def __init__(
+            self,
+            regression_decoder: BaseDecoder,
+            stochastic: bool = False
+    ):
+        super().__init__(stochastic=stochastic)
         self.regression_decoder = regression_decoder
+        self.regression_decoder.stochastic = self.stochastic
         self.n_dims = 3 + self.regression_decoder.n_dims
 
     def forward(

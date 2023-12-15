@@ -16,17 +16,18 @@ from typing import List, Tuple, Dict
 import torch.nn
 
 # Internal modules
+from .base_decoder import BaseDecoder
 
 main_logger = logging.getLogger(__name__)
 
 
-class CombinedDecoder(torch.nn.Module):
+class CombinedDecoder(BaseDecoder):
     def __init__(
             self,
             base_decoders: Dict[str, torch.nn.Module],
             stochastic: bool = False
     ):
-        super().__init__()
+        super().__init__(stochastic=stochastic)
         self.base_decoders = torch.nn.ModuleDict(base_decoders)
         for decoder in self.base_decoders.values():
             decoder.stochastic = stochastic

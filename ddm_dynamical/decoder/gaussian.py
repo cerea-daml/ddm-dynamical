@@ -19,13 +19,14 @@ import torch.nn
 from torch.distributions import Normal
 
 # Internal modules
+from .base_decoder import BaseDecoder
 from .mean_funcs import delta_mean
 from ..utils import masked_average
 
 main_logger = logging.getLogger(__name__)
 
 
-class GaussianDecoder(torch.nn.Module):
+class GaussianDecoder(BaseDecoder):
     n_dims = 1
 
     def __init__(
@@ -39,13 +40,12 @@ class GaussianDecoder(torch.nn.Module):
             stochastic: bool = False,
             mean_func: Callable = delta_mean
     ):
-        super().__init__()
+        super().__init__(stochastic=stochastic)
         self.mean = mean
         self.std = std
         self.ema_rate = ema_rate
         self.lower_bound = lower_bound
         self.upper_bound = upper_bound
-        self.stochastic = stochastic
         self.mean_func = mean_func
         self.register_buffer("scale", torch.ones(*[1]*std_dims) * std)
         self.register_buffer("fixed_scale", torch.ones(*[1]*std_dims) * std)

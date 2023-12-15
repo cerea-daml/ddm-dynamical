@@ -23,6 +23,10 @@ main_logger = logging.getLogger(__name__)
 class BaseDecoder(torch.nn.Module):
     n_dims = 0
 
+    def __init__(self, stochastic: bool = False):
+        super().__init__()
+        self.stochastic = stochastic
+
     @abstractmethod
     def forward(
             self,
