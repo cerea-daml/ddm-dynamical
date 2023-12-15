@@ -88,6 +88,6 @@ class GaussianDecoder(BaseDecoder):
         mean = self.to_mean(in_tensor, first_guess)
         dist = Normal(mean, self.scale)
         nll = -dist.log_prob(target)
-        dist_clim = Normal(mean, self.scale)
+        dist_clim = Normal(mean, self.fixed_scale)
         nll_clim = -dist_clim.log_prob(target)
         return masked_average(nll, mask), masked_average(nll_clim, mask)
