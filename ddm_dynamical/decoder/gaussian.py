@@ -12,6 +12,7 @@
 import logging
 from math import inf
 from typing import Union, Tuple, Callable
+from types import MethodType
 
 # External modules
 import torch
@@ -46,7 +47,7 @@ class GaussianDecoder(BaseDecoder):
         self.ema_rate = ema_rate
         self.lower_bound = lower_bound
         self.upper_bound = upper_bound
-        self.mean_func = mean_func
+        self.to_mean = MethodType(mean_func, self)
         self.register_buffer("scale", torch.ones(*[1]*std_dims) * std)
         self.register_buffer("fixed_scale", torch.ones(*[1]*std_dims) * std)
 
@@ -56,7 +57,7 @@ class GaussianDecoder(BaseDecoder):
             first_guess: torch.Tensor,
             mask: torch.Tensor
     ) -> torch.Tensor:
-        prediction = self.mean_func(in_tensor, first_guess)
+        prediction = self.to_mean(in_tensor, first_guess)
         if self.stochastic:
             prediction.add_(torch.randn_like(prediction) * self.scale)
         prediction = prediction * mask
@@ -69,7 +70,7 @@ class GaussianDecoder(BaseDecoder):
             target: torch.Tensor,
             mask: torch.Tensor
     ) -> None:
-        mean = self.mean_func(in_tensor, first_guess)
+        mean = self.to_mean(in_tensor, first_guess)
         squared_error = (mean-target) ** 2
         mse = masked_average(squared_error, mask).detach()
         self.scale = (
@@ -84,7 +85,7 @@ class GaussianDecoder(BaseDecoder):
             target: torch.Tensor,
             mask: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        mean = self.mean_func(in_tensor, first_guess)
+        mean = self.to_mean(in_tensor, first_guess)
         dist = Normal(mean, self.scale)
         nll = -dist.log_prob(target)
         dist_clim = Normal(mean, self.scale)

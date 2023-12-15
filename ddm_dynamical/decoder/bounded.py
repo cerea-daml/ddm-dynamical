@@ -37,10 +37,10 @@ class LowerBoundedDecoder(BaseDecoder):
 
     @property
     def bound(self) -> float:
-        return self.lower_bound
+        return self.regression_decoder.lower_bound
 
     def target_to_unbounded(self, target: torch.Tensor) -> torch.Tensor:
-        return (target > self.lower_bound).to(target)
+        return (target > self.bound).to(target)
 
     def forward(
             self,
@@ -99,10 +99,10 @@ class LowerBoundedDecoder(BaseDecoder):
 class UpperBoundedDecoder(LowerBoundedDecoder):
     @property
     def bound(self) -> float:
-        return self.upper_bound
+        return self.regression_decoder.upper_bound
 
     def target_to_unbounded(self, target: torch.Tensor) -> torch.Tensor:
-        return (target < self.upper_bound).to(target)
+        return (target < self.bound).to(target)
 
 
 class BoundedDecoder(BaseDecoder):
@@ -115,6 +115,14 @@ class BoundedDecoder(BaseDecoder):
         self.regression_decoder = regression_decoder
         self.regression_decoder.stochastic = self.stochastic
         self.n_dims = 3 + self.regression_decoder.n_dims
+
+    @property
+    def lower_bound(self) -> float:
+        return self.regression_decoder.lower_bound
+
+    @property
+    def upper_bound(self) -> float:
+        return self.regression_decoder.upper_bound
 
     def forward(
             self,
