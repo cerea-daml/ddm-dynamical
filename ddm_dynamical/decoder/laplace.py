@@ -59,7 +59,8 @@ class LaplaceDecoder(BaseDecoder):
     ) -> torch.Tensor:
         prediction = self.to_mean(in_tensor, first_guess)
         if self.stochastic:
-            prediction.add_(torch.randn_like(prediction) * self.scale)
+            u = torch.rand_like(prediction)*2-1
+            prediction.sub_(self.scale * u.sign() * torch.log1p(-u.abs()))
         prediction = prediction * mask
         return prediction.clamp(min=self.lower_bound, max=self.upper_bound)
 
