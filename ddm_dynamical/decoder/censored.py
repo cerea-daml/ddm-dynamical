@@ -39,14 +39,12 @@ class CensoredDecoder(BaseDecoder):
             lower_bound: float = -math.inf,
             upper_bound: float = math.inf,
             std_dims: int = 3,
-            ema_rate: float = 1.,
             stochastic: bool = False,
             mean_func: Callable = delta_mean
     ):
         super().__init__(stochastic=stochastic)
         self.mean = mean
         self.std = std
-        self.ema_rate = ema_rate
         self.lower_bound = lower_bound
         self.upper_bound = upper_bound
         self.to_mean = MethodType(mean_func, self)
