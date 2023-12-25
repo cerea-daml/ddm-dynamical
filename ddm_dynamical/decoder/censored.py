@@ -17,6 +17,7 @@ from types import MethodType
 # External modules
 import torch
 import torch.nn
+from torch.distributions import Normal
 
 # Internal modules
 from .base_decoder import BaseDecoder
@@ -111,6 +112,7 @@ class CensoredDecoder(BaseDecoder):
             mask: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         mean = self.to_mean(in_tensor, first_guess)
-        loss = self.get_loss(mean, self.scale, target, mask)
-        loss_clim = self.get_loss(mean, self.fixed_scale, target, mask)
+        loss = self.get_loss(mean, self.scale, target, mask)C
+        loss_clim = -Normal(mean, self.fixed_scale).log_prob(target)
+        loss_clim = masked_average(loss_clim, mask)
         return loss, loss_clim
