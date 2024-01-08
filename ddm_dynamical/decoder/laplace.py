@@ -21,7 +21,7 @@ from torch.distributions import Normal, Laplace
 
 # Internal modules
 from .base_decoder import BaseDecoder
-from .mean_funcs import delta_mean
+from .prediction_funcs import delta_prediction
 from ..utils import masked_average
 
 main_logger = logging.getLogger(__name__)
@@ -36,10 +36,9 @@ class LaplaceDecoder(BaseDecoder):
             std: Union[float, torch.Tensor] = 1.,
             lower_bound: float = -inf,
             upper_bound: float = inf,
-            std_dims: int = 3,
             ema_rate: float = 1.,
             stochastic: bool = False,
-            mean_func: Callable = delta_mean
+            prediction_func: Callable = delta_prediction
     ):
         super().__init__(stochastic=stochastic)
         self.mean = mean
@@ -47,9 +46,8 @@ class LaplaceDecoder(BaseDecoder):
         self.ema_rate = ema_rate
         self.lower_bound = lower_bound
         self.upper_bound = upper_bound
-        self.to_mean = MethodType(mean_func, self)
-        self.register_buffer("scale", torch.ones(*[1]*std_dims) * std)
-        self.register_buffer("fixed_scale", torch.ones(*[1]*std_dims) * std)
+        self.to_prediction = MethodType(prediction_func, self)
+        self.register_buffer("scale", torch.ones(1) * std)
 
     def forward(
             self,
@@ -57,7 +55,7 @@ class LaplaceDecoder(BaseDecoder):
             first_guess: torch.Tensor,
             mask: torch.Tensor
     ) -> torch.Tensor:
-        prediction = self.to_mean(in_tensor, first_guess)
+        prediction = self.to_prediction(in_tensor, first_guess)
         if self.stochastic:
             u = torch.rand_like(prediction)*2-1
             prediction.sub_(self.scale * u.sign() * torch.log1p(-u.abs()))
@@ -71,8 +69,8 @@ class LaplaceDecoder(BaseDecoder):
             target: torch.Tensor,
             mask: torch.Tensor
     ) -> None:
-        mean = self.to_mean(in_tensor, first_guess)
-        mae = masked_average((target-mean).abs(), mask).detach()
+        prediction = self.to_prediction(in_tensor, first_guess)
+        mae = masked_average((target-prediction).abs(), mask).detach()
         self.scale = self.ema_rate * self.scale + (1-self.ema_rate) * mae
 
     def loss(
@@ -82,9 +80,12 @@ class LaplaceDecoder(BaseDecoder):
             target: torch.Tensor,
             mask: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        mean = self.to_mean(in_tensor, first_guess)
-        dist = Laplace(mean, self.scale)
-        nll = -dist.log_prob(target)
-        dist_clim = Normal(mean, self.fixed_scale)
-        nll_clim = -dist_clim.log_prob(target)
-        return masked_average(nll, mask), masked_average(nll_clim, mask)
+        prediction = self.to_prediction(in_tensor, first_guess)
+        dist = Laplace(prediction, self.scale)
+        loss = masked_average(-dist.log_prob(target), mask)
+
+        # Climatological loss
+        prediction = self(in_tensor, first_guess, mask)
+        loss_clim = ((prediction-target)/self.std).pow(2)
+        loss_clim = masked_average(loss_clim, mask)
+        return loss, loss_clim
