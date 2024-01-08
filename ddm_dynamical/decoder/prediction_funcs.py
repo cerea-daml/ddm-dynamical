@@ -19,7 +19,7 @@ import torch
 main_logger = logging.getLogger(__name__)
 
 
-def state_mean(
+def state_prediction(
         self,
         in_tensor: torch.Tensor,
         first_guess: torch.Tensor
@@ -27,7 +27,7 @@ def state_mean(
     return in_tensor * self.std + self.mean
 
 
-def delta_mean(
+def delta_prediction(
         self,
         in_tensor: torch.Tensor,
         first_guess: torch.Tensor
