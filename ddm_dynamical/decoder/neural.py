@@ -27,12 +27,15 @@ class NeuralDecoder(BaseDecoder):
             self,
             network: torch.nn.Module,
             physical_decoder: BaseDecoder,
-            stochastic: bool = False
+            stochastic: bool = False,
+            **kwargs
     ):
         super().__init__(stochastic=stochastic)
         self.network = network
         self.physical_decoder = physical_decoder
         self.physical_decoder.stochastic = stochastic
+        for k, v in kwargs.items():
+            self.physical_decoder.__setattr__(k, v)
 
     def forward(
             self,

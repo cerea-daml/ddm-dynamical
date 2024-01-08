@@ -25,12 +25,15 @@ class CombinedDecoder(BaseDecoder):
     def __init__(
             self,
             base_decoders: Dict[str, torch.nn.Module],
-            stochastic: bool = False
+            stochastic: bool = False,
+            **kwargs
     ):
         super().__init__(stochastic=stochastic)
         self.base_decoders = torch.nn.ModuleDict(base_decoders)
         for decoder in self.base_decoders.values():
             decoder.stochastic = stochastic
+            for k, v in kwargs.items():
+                decoder.__setattr__(k, v)
 
     @property
     def splits(self) -> List[int]:

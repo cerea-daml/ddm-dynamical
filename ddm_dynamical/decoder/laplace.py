@@ -38,7 +38,8 @@ class LaplaceDecoder(BaseDecoder):
             upper_bound: float = inf,
             ema_rate: float = 1.,
             stochastic: bool = False,
-            prediction_func: Callable = delta_prediction
+            prediction_func: Callable = delta_prediction,
+            **kwargs
     ):
         super().__init__(stochastic=stochastic)
         self.mean = mean
