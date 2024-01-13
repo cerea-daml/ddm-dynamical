@@ -78,7 +78,7 @@ class BaseSampler(torch.nn.Module):
             in_tensor.size(0), 1, device=in_tensor.device, dtype=in_tensor.dtype
         ) * self.scheduler.normalize_gamma(gamma)
         prediction = self.denoising_network(
-            in_tensor, normalized_gamma=norm_gamma, mask=mask
+            in_tensor, normalized_gamma=norm_gamma, mask=mask, **conditioning
         )
         prediction = self.post_func(
             prediction=prediction,
