@@ -23,7 +23,8 @@ main_logger = logging.getLogger(__name__)
 __all__ = [
     "default_preprocessing",
     "default_postprocessing",
-    "default_projection"
+    "eps_projection",
+    "v_projection"
 ]
 
 
@@ -36,13 +37,9 @@ def default_preprocessing(
         **conditioning
 ) -> torch.Tensor:
     """
-    The default preprocessing function for the sampler. If conditioning data is
-    given, `in_data` will be concatenated with the conditioning data.
+    The default preprocessing function for the sampler.
     """
-    if conditioning:
-        return torch.cat((in_data, *conditioning.values()), dim=1)
-    else:
-        return in_data
+    return in_data
 
 
 def default_postprocessing(
@@ -61,7 +58,7 @@ def default_postprocessing(
     return prediction
 
 
-def default_projection(
+def eps_projection(
         prediction: torch.Tensor,
         in_data: torch.Tensor,
         alpha: torch.Tensor,
@@ -71,8 +68,24 @@ def default_projection(
         **conditioning
 ) -> torch.Tensor:
     """
-    A default function projecting  `in_data` with the prediction to the
+    Function projecting `in_data` with the prediction of epsilon to the
     (cleaned) state. This function applies Tweedie's formula, Efron (2011), for
     the projection.
     """
     return (in_data-sigma*prediction) / alpha
+
+
+def v_projection(
+        prediction: torch.Tensor,
+        in_data: torch.Tensor,
+        alpha: torch.Tensor,
+        sigma: torch.Tensor,
+        gamma: torch.Tensor,
+        mask: torch.Tensor = None,
+        **conditioning
+):
+    """
+    Function projecting `in_data` with the prediction of v to the
+    (cleaned) state, following Salimans and Ho (2022).
+    """
+    return alpha * in_data - sigma * prediction

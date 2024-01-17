@@ -39,7 +39,7 @@ class BaseSampler(torch.nn.Module):
         self.denoising_network = denoising_network
         self.pre_func = pre_func or default_preprocessing
         self.post_func = post_func or default_postprocessing
-        self.proj_func = proj_func or default_projection
+        self.proj_func = proj_func or eps_projection
         self.timesteps = timesteps
         self.scheduler = scheduler
         self.pbar = pbar
