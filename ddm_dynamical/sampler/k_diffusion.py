@@ -28,6 +28,8 @@ class KDiffusionSampler(BaseSampler):
             scheduler: "ddm_dynamical.scheduler.noise_scheduler.NoiseScheduler",
             timesteps: int = 250,
             denoising_network: torch.nn.Module = None,
+            pre_func: Callable = None,
+            post_func: Callable = None,
             proj_func: Callable = None,
             pbar: bool = False
     ):
@@ -35,6 +37,8 @@ class KDiffusionSampler(BaseSampler):
             scheduler=scheduler,
             timesteps=timesteps,
             denoising_network=denoising_network,
+            pre_func=pre_func,
+            post_func=post_func,
             proj_func=proj_func,
             pbar=pbar
         )
