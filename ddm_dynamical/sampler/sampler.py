@@ -19,6 +19,7 @@ from tqdm.autonotebook import tqdm
 
 # Internal modules
 from .defaults import *
+from ddm_dynamical.utils import normalize_gamma
 
 
 logger = logging.getLogger(__name__)
@@ -33,6 +34,8 @@ class BaseSampler(torch.nn.Module):
             pre_func: Callable = None,
             post_func: Callable = None,
             proj_func: Callable = None,
+            gamma_min: float = -15.,
+            gamma_max: float = 15.,
             pbar: bool = True,
     ):
         super().__init__()
@@ -41,6 +44,8 @@ class BaseSampler(torch.nn.Module):
         self.post_func = post_func or default_postprocessing
         self.proj_func = proj_func or eps_projection
         self.timesteps = timesteps
+        self.gamma_min = gamma_min
+        self.gamma_max = gamma_max
         self.scheduler = scheduler
         self.pbar = pbar
 
@@ -76,7 +81,7 @@ class BaseSampler(torch.nn.Module):
         )
         norm_gamma = torch.ones(
             in_tensor.size(0), 1, device=in_tensor.device, dtype=in_tensor.dtype
-        ) * self.scheduler.normalize_gamma(gamma)
+        ) * normalize_gamma(gamma, self.gamma_min, self.gamma_max)
         prediction = self.denoising_network(
             in_tensor, normalized_gamma=norm_gamma, mask=mask, **conditioning
         )

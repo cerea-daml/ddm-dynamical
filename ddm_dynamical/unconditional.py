@@ -73,8 +73,10 @@ class UnconditionalModule(LightningModule):
         self.weighting = weighting
         self.encoder = encoder
         self.decoder = decoder
-        self.lr = lr
         self.sampler = sampler
+        self.sampler.gamma_min = self.gamma_min = self.scheduler.gamma_min
+        self.sampler.gamma_max = self.gamma_max = self.scheduler.gamma_max
+        self.lr = lr
         self.save_hyperparameters(
             ignore=["denoising_network", "encoder", "decoder", "scheduler",
                     "weighting", "sampler"]
@@ -166,7 +168,9 @@ class UnconditionalModule(LightningModule):
         latent = self.encoder(data)
         noised_latent = (1 - noise_var).sqrt() * latent \
                         + noise_var.sqrt() * noise
-        norm_gamma = self.scheduler.normalize_gamma(gamma.detach())
+        norm_gamma = utils.normalize_gamma(
+            gamma.detach(), self.gamma_min, self.gamma_max
+        )
         prediction = self.denoising_network(
             noised_latent, normalized_gamma=norm_gamma.view(-1, 1), mask=mask,
             **{k: v for k, v in batch.items() if k not in ["data", "mask"]}
