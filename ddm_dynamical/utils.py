@@ -58,6 +58,12 @@ def sample_time(
     return sampled_time
 
 
+def normalize_gamma(
+        gamma: Any, gamma_min: float = -15., gamma_max: float = 15
+) -> Any:
+    return (gamma-gamma_min) / (gamma_max-gamma_min)
+
+
 def masked_average(
         in_tensor: torch.Tensor,
         mask: torch.Tensor = None,
