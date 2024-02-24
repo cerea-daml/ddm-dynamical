@@ -11,7 +11,7 @@
 
 # System modules
 import logging
-from typing import Callable
+from typing import Callable, Dict, Any
 
 # External modules
 import torch
@@ -65,7 +65,7 @@ class DDIMSampler(BaseSampler):
             in_data: torch.Tensor,
             step: torch.Tensor,
             mask: torch.Tensor = None,
-            **conditioning: torch.Tensor
+            **conditioning: Dict[str, Any]
     ) -> torch.Tensor:
         # Estimate coefficients
         prev_step = step-1/self.timesteps
@@ -86,7 +86,6 @@ class DDIMSampler(BaseSampler):
             alpha=alpha_t,
             sigma=sigma_t,
             gamma=gamma_t,
-            mask=mask,
             **conditioning
         )
         state = self.proj_func(
@@ -95,7 +94,6 @@ class DDIMSampler(BaseSampler):
             alpha=alpha_t,
             sigma=sigma_t,
             gamma=gamma_t,
-            mask=mask,
             **conditioning
         )
 
