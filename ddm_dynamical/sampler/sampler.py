@@ -68,7 +68,6 @@ class BaseSampler(torch.nn.Module):
             alpha: torch.Tensor,
             sigma: torch.Tensor,
             gamma: torch.Tensor,
-            mask: torch.Tensor,
             **conditioning: torch.Tensor
     ) -> torch.Tensor:
         in_tensor = self.pre_func(
@@ -76,14 +75,13 @@ class BaseSampler(torch.nn.Module):
             alpha=alpha,
             sigma=sigma,
             gamma=gamma,
-            mask=mask,
             **conditioning
         )
         norm_gamma = torch.ones(
             in_tensor.size(0), 1, device=in_tensor.device, dtype=in_tensor.dtype
         ) * normalize_gamma(gamma, self.gamma_min, self.gamma_max)
         prediction = self.denoising_network(
-            in_tensor, normalized_gamma=norm_gamma, mask=mask, **conditioning
+            in_tensor, normalized_gamma=norm_gamma, **conditioning
         )
         prediction = self.post_func(
             prediction=prediction,
@@ -91,7 +89,6 @@ class BaseSampler(torch.nn.Module):
             alpha=alpha,
             sigma=sigma,
             gamma=gamma,
-            mask=mask,
             **conditioning
         )
         return prediction
@@ -100,12 +97,11 @@ class BaseSampler(torch.nn.Module):
     def sample(
             self,
             sample_shape=torch.Size([]),
-            mask: torch.Tensor = None,
             **conditioning: torch.Tensor
     ) -> torch.Tensor:
         prior_sample = self.generate_prior_sample(sample_shape)
         denoised_data = self.reconstruct(
-            prior_sample, self.timesteps, mask=mask, **conditioning
+            prior_sample, self.timesteps, **conditioning
         )
         return denoised_data
 
@@ -113,7 +109,6 @@ class BaseSampler(torch.nn.Module):
             self,
             in_tensor: torch.Tensor,
             n_steps: int = 250,
-            mask: torch.Tensor = None,
             **conditioning: torch.Tensor
     ) -> torch.Tensor:
         denoised_tensor = in_tensor
@@ -126,7 +121,7 @@ class BaseSampler(torch.nn.Module):
             time_steps = tqdm(reversed(time_steps), total=n_steps, leave=False)
         for step in time_steps:
             denoised_tensor = self(
-                denoised_tensor, step, mask=mask, **conditioning
+                denoised_tensor, step, **conditioning
             )
         return denoised_tensor
 
@@ -134,7 +129,6 @@ class BaseSampler(torch.nn.Module):
             self,
             in_data: torch.Tensor,
             step: torch.Tensor,
-            mask: torch.Tensor = None,
             **conditioning: torch.Tensor
     ) -> torch.Tensor:
         pass

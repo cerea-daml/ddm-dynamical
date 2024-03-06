@@ -64,7 +64,6 @@ class DDIMSampler(BaseSampler):
             self,
             in_data: torch.Tensor,
             step: torch.Tensor,
-            mask: torch.Tensor = None,
             **conditioning: Dict[str, Any]
     ) -> torch.Tensor:
         # Estimate coefficients

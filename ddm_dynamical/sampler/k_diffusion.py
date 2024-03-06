@@ -56,7 +56,6 @@ class KDiffusionSampler(BaseSampler):
             self,
             in_state: torch.Tensor,
             sigma_tilde: torch.Tensor,
-            mask: torch.Tensor = None,
             **conditioning
     ) -> torch.Tensor:
         var_exploded = sigma_tilde[0]**2
@@ -70,7 +69,6 @@ class KDiffusionSampler(BaseSampler):
             alpha=alpha,
             sigma=sigma,
             gamma=gamma,
-            mask=mask,
             **conditioning
         )
         return self.proj_func(
@@ -79,7 +77,6 @@ class KDiffusionSampler(BaseSampler):
             alpha=alpha,
             sigma=sigma,
             gamma=gamma,
-            mask=mask,
             **conditioning
         )
 
@@ -87,7 +84,6 @@ class KDiffusionSampler(BaseSampler):
             self,
             in_tensor: torch.Tensor,
             n_steps: int = 250,
-            mask: torch.Tensor = None,
             **conditioning: torch.Tensor
     ) -> torch.Tensor:
         time_steps = torch.linspace(
@@ -103,6 +99,6 @@ class KDiffusionSampler(BaseSampler):
             self.denoise_step,
             in_tensor_exploded,
             sigma_tildes,
-            extra_args=dict(mask=mask, **conditioning),
+            extra_args=dict(**conditioning),
             disable=None if self.pbar else True
         )

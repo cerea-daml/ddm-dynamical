@@ -25,7 +25,6 @@ class DDPMSampler(BaseSampler):
             self,
             in_data: torch.Tensor,
             step: torch.Tensor,
-            mask: torch.Tensor = None,
             **conditioning: torch.Tensor
     ) -> torch.Tensor:
         # Estimate coefficients from scheduler
@@ -55,7 +54,6 @@ class DDPMSampler(BaseSampler):
             alpha=alpha_t,
             sigma=sigma_t,
             gamma=gamma_t,
-            mask=mask,
             **conditioning
         )
         state = self.proj_func(
@@ -64,7 +62,6 @@ class DDPMSampler(BaseSampler):
             alpha=alpha_t,
             sigma=sigma_t,
             gamma=gamma_t,
-            mask=mask,
             **conditioning
         )
 

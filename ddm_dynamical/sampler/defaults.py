@@ -33,7 +33,6 @@ def default_preprocessing(
         alpha: torch.Tensor,
         sigma: torch.Tensor,
         gamma: torch.Tensor,
-        mask: torch.Tensor = None,
         **conditioning
 ) -> torch.Tensor:
     """
@@ -48,7 +47,6 @@ def default_postprocessing(
         alpha: torch.Tensor,
         sigma: torch.Tensor,
         gamma: torch.Tensor,
-        mask: torch.Tensor = None,
         **conditioning
 ) -> torch.Tensor:
     """
@@ -64,7 +62,6 @@ def eps_projection(
         alpha: torch.Tensor,
         sigma: torch.Tensor,
         gamma: torch.Tensor,
-        mask: torch.Tensor = None,
         **conditioning
 ) -> torch.Tensor:
     """
@@ -81,7 +78,6 @@ def v_projection(
         alpha: torch.Tensor,
         sigma: torch.Tensor,
         gamma: torch.Tensor,
-        mask: torch.Tensor = None,
         **conditioning
 ):
     """
