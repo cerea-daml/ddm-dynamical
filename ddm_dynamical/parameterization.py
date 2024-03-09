@@ -27,7 +27,7 @@ __all__ = [
 
 
 class EPSParam(torch.nn.Module):
-    def get_errors(
+    def estimate_errors(
             self,
             prediction: torch.Tensor,
             in_data: torch.Tensor,
@@ -53,7 +53,7 @@ class EPSParam(torch.nn.Module):
 
 
 class VParam(torch.nn.Module):
-    def get_errors(
+    def estimate_errors(
             self,
             prediction: torch.Tensor,
             in_data: torch.Tensor,
@@ -81,7 +81,7 @@ class VParam(torch.nn.Module):
 
 
 class DataParam(torch.nn.Module):
-    def get_errors(
+    def estimate_errors(
             self,
             prediction: torch.Tensor,
             in_data: torch.Tensor,
