@@ -35,7 +35,8 @@ class EPSParam(torch.nn.Module):
             noise: torch.Tensor,
             alpha: torch.Tensor,
             sigma: torch.Tensor,
-            gamma: torch.Tensor
+            gamma: torch.Tensor,
+            *args, **kwargs
     ) -> torch.Tensor:
         return (noise - prediction).pow(2)
 
@@ -45,7 +46,8 @@ class EPSParam(torch.nn.Module):
             in_data: torch.Tensor,
             alpha: torch.Tensor,
             sigma: torch.Tensor,
-            gamma: torch.Tensor
+            gamma: torch.Tensor,
+            *args, **kwargs
     ):
         return alpha * in_data - sigma * prediction
 
@@ -59,7 +61,8 @@ class VParam(torch.nn.Module):
             noise: torch.Tensor,
             alpha: torch.Tensor,
             sigma: torch.Tensor,
-            gamma: torch.Tensor
+            gamma: torch.Tensor,
+            *args, **kwargs
     ) -> torch.Tensor:
         v_target = alpha * noise - sigma * target
         v_weight = (torch.exp(-gamma) + 1)
@@ -71,7 +74,8 @@ class VParam(torch.nn.Module):
             in_data: torch.Tensor,
             alpha: torch.Tensor,
             sigma: torch.Tensor,
-            gamma: torch.Tensor
+            gamma: torch.Tensor,
+            *args, **kwargs
     ):
         return alpha * in_data - sigma * prediction
 
@@ -85,7 +89,8 @@ class DataParam(torch.nn.Module):
             noise: torch.Tensor,
             alpha: torch.Tensor,
             sigma: torch.Tensor,
-            gamma: torch.Tensor
+            gamma: torch.Tensor,
+            *args, **kwargs
     ) -> torch.Tensor:
         data_weight = torch.exp(gamma)
         return data_weight * (target - prediction).pow(2)
@@ -96,6 +101,7 @@ class DataParam(torch.nn.Module):
             in_data: torch.Tensor,
             alpha: torch.Tensor,
             sigma: torch.Tensor,
-            gamma: torch.Tensor
+            gamma: torch.Tensor,
+            *args, **kwargs
     ):
         return prediction
