@@ -56,7 +56,7 @@ class DDPMSampler(BaseSampler):
             gamma=gamma_t,
             **conditioning
         )
-        state = self.proj_func(
+        state = self.param(
             prediction=prediction,
             in_data=in_data,
             alpha=alpha_t,

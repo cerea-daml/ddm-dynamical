@@ -19,6 +19,7 @@ from tqdm.autonotebook import tqdm
 
 # Internal modules
 from .defaults import *
+from ddm_dynamical.parameterization import EPSParam
 from ddm_dynamical.utils import normalize_gamma
 
 
@@ -33,7 +34,7 @@ class BaseSampler(torch.nn.Module):
             denoising_network: torch.nn.Module = None,
             pre_func: Callable = None,
             post_func: Callable = None,
-            proj_func: Callable = None,
+            param: Callable = None,
             gamma_min: float = -15.,
             gamma_max: float = 15.,
             pbar: bool = True,
@@ -42,7 +43,7 @@ class BaseSampler(torch.nn.Module):
         self.denoising_network = denoising_network
         self.pre_func = pre_func or default_preprocessing
         self.post_func = post_func or default_postprocessing
-        self.proj_func = proj_func or eps_projection
+        self.param = param or EPSParam
         self.timesteps = timesteps
         self.gamma_min = gamma_min
         self.gamma_max = gamma_max

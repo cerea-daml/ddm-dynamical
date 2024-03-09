@@ -71,7 +71,7 @@ class KDiffusionSampler(BaseSampler):
             gamma=gamma,
             **conditioning
         )
-        return self.proj_func(
+        return self.param(
             prediction,
             scaled_in_state,
             alpha=alpha,
