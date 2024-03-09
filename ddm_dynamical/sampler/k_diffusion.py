@@ -30,7 +30,7 @@ class KDiffusionSampler(BaseSampler):
             denoising_network: torch.nn.Module = None,
             pre_func: Callable = None,
             post_func: Callable = None,
-            proj_func: Callable = None,
+            param: Callable = None,
             pbar: bool = False
     ):
         super().__init__(
@@ -39,7 +39,7 @@ class KDiffusionSampler(BaseSampler):
             denoising_network=denoising_network,
             pre_func=pre_func,
             post_func=post_func,
-            proj_func=proj_func,
+            param=param,
             pbar=pbar
         )
         self.k_func = k_func

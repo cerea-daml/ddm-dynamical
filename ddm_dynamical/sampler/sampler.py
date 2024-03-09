@@ -43,7 +43,7 @@ class BaseSampler(torch.nn.Module):
         self.denoising_network = denoising_network
         self.pre_func = pre_func or default_preprocessing
         self.post_func = post_func or default_postprocessing
-        self.param = param or EPSParam
+        self.param = param or EPSParam()
         self.timesteps = timesteps
         self.gamma_min = gamma_min
         self.gamma_max = gamma_max
