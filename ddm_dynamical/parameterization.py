@@ -22,7 +22,9 @@ main_logger = logging.getLogger(__name__)
 __all__ = [
     "EPSParam",
     "VParam",
-    "DataParam"
+    "DataParam",
+    "FlowOTParam",
+    "EDMParam"
 ]
 
 
