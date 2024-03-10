@@ -139,7 +139,7 @@ class FlowOTParam(torch.nn.Module):
         return in_data - prediction * time
 
 
-class FParam(torch.nn.Module):
+class EDMParam(torch.nn.Module):
     def __init__(self, sigma_data: float = 1.):
         super().__init__()
         self.sigma_data = sigma_data
@@ -183,6 +183,7 @@ class FParam(torch.nn.Module):
     ):
         # Eq. 118
         sigma_tilde = torch.exp(-0.5 * gamma)
-        denom = sigma_tilde**2 + self.sigma_data ** 2
-        in_data_factor = (self.sigma_data**2 * alpha) / denom
+        denom = sigma_tilde ** 2 + self.sigma_data ** 2
+        in_data_factor = (self.sigma_data ** 2 * alpha) / denom
         f_factor = sigma_tilde * self.sigma_data / denom.sqrt()
+        return in_data_factor * in_data + f_factor * prediction
