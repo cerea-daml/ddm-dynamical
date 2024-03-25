@@ -55,7 +55,7 @@ class BinarizedScheduler(NoiseScheduler):
         bin_times = torch.cumsum(-self.bin_values, dim=0)
         bin_times *= (self.gamma_max-self.gamma_min)/self.n_bins
         bin_times = torch.cat(
-            (torch.zeros(1, device=bin_times.device), bin_times),
+            (torch.zeros_like(bin_times[[0]]), bin_times),
             dim=0
         )
         self.pdf_norm = bin_times[-1].abs().item()
