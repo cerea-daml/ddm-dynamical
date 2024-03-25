@@ -54,66 +54,63 @@ class HeunSampler(BaseSampler):
             **conditioning: Dict[str, Any]
     ) -> torch.Tensor:
         # Estimate coefficients
-        prev_step = step-1/self.timesteps
-        gamma_t = self.scheduler(step)
-        gamma_s = self.scheduler(prev_step)
+        prev_step = step - 1 / self.timesteps
+        gamma_t = self.scheduler(1 - step)
+        gamma_s = self.scheduler(1 - prev_step)
         var_t = torch.sigmoid(-gamma_t)
         var_s = torch.sigmoid(-gamma_s)
-        alpha_t = (1-var_t).sqrt()
-        alpha_s = (1-var_s).sqrt()
+        alpha_t = (1 - var_t).sqrt()
+        alpha_s = (1 - var_s).sqrt()
         sigma_t = var_t.sqrt()
         sigma_s = var_s.sqrt()
 
         # Coefficients for exploding
-        to_preserved_t = (1 + 1 / gamma_t.exp()).sqrt()
-        to_perserved_s = (1 + 1 / gamma_s.exp()).sqrt()
-
         sigma_tilde_t = gamma_t.exp() ** (-0.5)
         sigma_tilde_s = gamma_s.exp() ** (-0.5)
-        dt = sigma_tilde_s - sigma_tilde_t
+        dt = sigma_tilde_t - sigma_tilde_s
 
         # Estimate predictions
         prediction = self.estimate_prediction(
             in_data=in_data,
-            alpha=alpha_t,
-            sigma=sigma_t,
-            gamma=gamma_t,
+            alpha=alpha_s,
+            sigma=sigma_s,
+            gamma=gamma_s,
             **conditioning
         )
         denoised = self.param(
             prediction=prediction,
             in_data=in_data,
-            alpha=alpha_t,
-            sigma=sigma_t,
-            gamma=gamma_t,
+            alpha=alpha_s,
+            sigma=sigma_s,
+            gamma=gamma_s,
             **conditioning
         )
 
         # Estimate grad in exploding
-        in_exploded = in_data / to_preserved_t
-        grad = (in_exploded - denoised) / sigma_tilde_t
+        in_exploded = in_data / alpha_s
+        grad = (in_exploded - denoised) / sigma_tilde_s
 
         out_exploded = in_exploded + grad * dt
-        out_preserved = out_exploded * to_perserved_s
+        out_preserved = out_exploded * alpha_t
         if prev_step > 0 and self.heun:
             # Heun step
             prediction = self.estimate_prediction(
                 in_data=out_preserved,
-                alpha=alpha_s,
-                sigma=sigma_s,
-                gamma=gamma_s,
+                alpha=alpha_t,
+                sigma=sigma_t,
+                gamma=gamma_t,
                 **conditioning
             )
             denoised = self.param(
                 prediction=prediction,
                 in_data=out_preserved,
-                alpha=alpha_s,
-                sigma=sigma_s,
-                gamma=gamma_s,
+                alpha=alpha_t,
+                sigma=sigma_t,
+                gamma=gamma_t,
                 **conditioning
             )
-            grad_2 = (out_exploded - denoised) / sigma_tilde_s
+            grad_2 = (out_exploded - denoised) / sigma_tilde_t
             total_grad = (grad + grad_2) / 2
             out_exploded = in_exploded + total_grad * dt
-            out_preserved = out_exploded * to_perserved_s
+            out_preserved = out_exploded * alpha_t
         return out_preserved
