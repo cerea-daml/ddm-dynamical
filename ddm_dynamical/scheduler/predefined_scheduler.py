@@ -10,40 +10,31 @@
 
 # System modules
 import logging
-from typing import Iterable
 
 # External modules
 import torch
 
 # Internal modules
-from .binarized_scheduler import BinarizedScheduler
+from .noise_scheduler import NoiseScheduler
 
 
 main_logger = logging.getLogger(__name__)
 
 
-class PredefinedScheduler(BinarizedScheduler):
+class PredefinedScheduler(NoiseScheduler):
     def __init__(
             self,
-            bin_values: Iterable[float],
+            time_gammas: torch.Tensor,
             gamma_min: float = -15,
             gamma_max: float = 10,
     ):
         """
-        Binarized noise scheduler as proposed in
-        Kingma and Guo, `Understanding Diffusion Objectives as the ELBO with
-        Simple Data Augmentation`.
+        To set a predefined scheduler with equally distant time stepping from
+        gamma min to gamma max.
         """
-        super().__init__(
-            n_bins=len(bin_values), gamma_min=gamma_min, gamma_max=gamma_max
-        )
-        self.bin_values = torch.tensor(bin_values)
-        self._update_times()
+        super().__init__(gamma_min=gamma_min, gamma_max=gamma_max)
+        self.register_buffer("time_gammas", time_gammas)
 
-    def update(
-            self,
-            gamma: torch.Tensor,
-            target: torch.Tensor
-    ) -> None:
-        pass
-
+    def forward(self, timesteps: torch.Tensor) -> torch.Tensor:
+        assert timesteps.size(0) == self.time_gammas.size(0)
+        return self.time_gammas
