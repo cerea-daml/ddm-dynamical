@@ -34,6 +34,7 @@ class BaseSampler(torch.nn.Module):
             denoising_network: torch.nn.Module = None,
             pre_func: Callable = None,
             post_func: Callable = None,
+            prior_sampler: Callable = None,
             param: Callable = None,
             gamma_min: float = -15.,
             gamma_max: float = 15.,
@@ -43,25 +44,13 @@ class BaseSampler(torch.nn.Module):
         self.denoising_network = denoising_network
         self.pre_func = pre_func or default_preprocessing
         self.post_func = post_func or default_postprocessing
+        self.prior_sampler = prior_sampler or default_prior_sample
         self.param = param or EPSParam()
         self.timesteps = timesteps
         self.gamma_min = gamma_min
         self.gamma_max = gamma_max
         self.scheduler = scheduler
         self.pbar = pbar
-
-    def generate_prior_sample(
-            self,
-            sample_shape=torch.Size([])
-    ) -> torch.Tensor:
-        if not isinstance(sample_shape, torch.Size):
-            sample_shape = torch.Size(sample_shape)
-        template_tensor = next(self.denoising_network.parameters())
-        prior_sample = torch.randn(
-            sample_shape, device=template_tensor.device,
-            dtype=template_tensor.dtype, layout=template_tensor.layout
-        )
-        return prior_sample
 
     def estimate_prediction(
             self,
@@ -100,7 +89,10 @@ class BaseSampler(torch.nn.Module):
             sample_shape=torch.Size([]),
             **conditioning: torch.Tensor
     ) -> torch.Tensor:
-        prior_sample = self.generate_prior_sample(sample_shape)
+        prior_sample = self.prior_sampler(
+            next(self.denoising_network.parameters()),
+            sample_shape
+        )
         denoised_data = self.reconstruct(
             prior_sample, self.timesteps, **conditioning
         )

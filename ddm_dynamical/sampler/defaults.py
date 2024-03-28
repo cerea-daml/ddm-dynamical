@@ -23,6 +23,7 @@ main_logger = logging.getLogger(__name__)
 __all__ = [
     "default_preprocessing",
     "default_postprocessing",
+    "default_prior_sample"
 ]
 
 
@@ -52,3 +53,20 @@ def default_postprocessing(
     default function simply returns the prediction.
     """
     return prediction
+
+
+def default_prior_sample(
+        template_tensor: torch.Tensor,
+        sample_shape=torch.Size([])
+) -> torch.Tensor:
+    """
+    Default function to draw a sample from the prior distribution for the
+    diffusion model.
+    """
+    if not isinstance(sample_shape, torch.Size):
+        sample_shape = torch.Size(sample_shape)
+    prior_sample = torch.randn(
+        sample_shape, device=template_tensor.device,
+        dtype=template_tensor.dtype, layout=template_tensor.layout
+    )
+    return prior_sample
