@@ -29,6 +29,9 @@ class DDIMSampler(BaseSampler):
             scheduler: "dyn_ddim.scheduler.noise_scheduler.NoiseScheduler",
             timesteps: int = 250,
             denoising_network: torch.nn.Module = None,
+            pre_func: Callable = None,
+            post_func: Callable = None,
+            prior_sampler: Callable = None,
             param: Callable = None,
             ddpm: bool = False,
             eta: float = 0.,
@@ -38,6 +41,9 @@ class DDIMSampler(BaseSampler):
             scheduler=scheduler,
             timesteps=timesteps,
             denoising_network=denoising_network,
+            pre_func=pre_func,
+            post_func=post_func,
+            prior_sampler=prior_sampler,
             param=param,
             pbar=pbar
         )

@@ -30,6 +30,7 @@ class KDiffusionSampler(BaseSampler):
             denoising_network: torch.nn.Module = None,
             pre_func: Callable = None,
             post_func: Callable = None,
+            prior_sampler: Callable = None,
             param: Callable = None,
             pbar: bool = False
     ):
@@ -39,6 +40,7 @@ class KDiffusionSampler(BaseSampler):
             denoising_network=denoising_network,
             pre_func=pre_func,
             post_func=post_func,
+            prior_sampler=prior_sampler,
             param=param,
             pbar=pbar
         )
