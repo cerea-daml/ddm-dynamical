@@ -30,6 +30,7 @@ class HeunSampler(BaseSampler):
             pre_func: Callable = None,
             post_func: Callable = None,
             prior_sampler: Callable = None,
+            grad_scale: float = 1.0,
             param: Callable = None,
             heun: bool = True,
             pbar: bool = False
@@ -48,6 +49,7 @@ class HeunSampler(BaseSampler):
             pbar=pbar
         )
         self.heun = heun
+        self.grad_scale = grad_scale
 
     def forward(
             self,
@@ -90,8 +92,9 @@ class HeunSampler(BaseSampler):
 
         # Estimate grad in exploding
         in_exploded = in_data / alpha_s
-        grad = (in_exploded - denoised) / sigma_tilde_s
 
+        # Epsilon scaling
+        grad = (in_exploded - denoised) / sigma_tilde_s / self.grad_scale
         out_exploded = in_exploded + grad * dt
         out_preserved = out_exploded * alpha_t
         if prev_step > 0 and self.heun:
@@ -111,8 +114,9 @@ class HeunSampler(BaseSampler):
                 gamma=gamma_t,
                 **conditioning
             )
-            grad_2 = (out_exploded - denoised) / sigma_tilde_t
+            grad_2 = (out_exploded - denoised) / sigma_tilde_t / self.grad_scale
             total_grad = (grad + grad_2) / 2
+
             out_exploded = in_exploded + total_grad * dt
             out_preserved = out_exploded * alpha_t
         return out_preserved
