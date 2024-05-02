@@ -29,8 +29,10 @@ class NoiseScheduler(torch.nn.Module):
             gamma_max: float = 10,
     ):
         super().__init__()
-        self.gamma_min = gamma_min
-        self.gamma_max = gamma_max
+        self.gamma_min = gamma_min if isinstance(gamma_min, torch.Tensor) \
+            else torch.tensor(gamma_min)
+        self.gamma_max = gamma_max if isinstance(gamma_max, torch.Tensor) \
+            else torch.tensor(gamma_max)
         self.eps = 1E-9
 
     def get_density(self, gamma: torch.Tensor) -> torch.Tensor:
