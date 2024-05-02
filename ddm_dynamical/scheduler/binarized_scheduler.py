@@ -51,6 +51,7 @@ class BinarizedScheduler(NoiseScheduler):
     def bin_times(self) -> torch.Tensor:
         return self._bin_times
 
+    @torch.no_grad()
     def _update_times(self):
         min_left = self.get_bin_num(self.gamma_min)
         min_right = min_left + 1
@@ -116,6 +117,7 @@ class BinarizedScheduler(NoiseScheduler):
         ) * (timesteps - self.bin_times[idx_left])
         return gamma_left + delta_gamma
 
+    @torch.no_grad()
     def update(
             self,
             gamma: torch.Tensor,
@@ -139,4 +141,3 @@ class BinarizedScheduler(NoiseScheduler):
             dim=0, index=idx_bin, src=scattered_factors*target
         )
         self._update_times()
-
