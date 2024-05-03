@@ -28,10 +28,10 @@ class EvaluateSchedulerCallback(Callback):
         super().__init__()
         self.timesteps = torch.linspace(0, 1, n_steps)
 
-    def on_train_epoch_start(
+    def on_validation_end(
             self, trainer: "pl.Trainer", pl_module: "pl.LightningModule"
     ) -> None:
-        if trainer.logger is not None:
+        if trainer.logger is not None and hasattr(pl_module, "scheduler"):
             self.timesteps = self.timesteps.to(pl_module.device)
             gamma = pl_module.scheduler(self.timesteps)
             density = pl_module.scheduler.get_density(gamma)
