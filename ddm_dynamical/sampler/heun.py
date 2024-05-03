@@ -33,6 +33,8 @@ class HeunSampler(BaseSampler):
             grad_scale: float = 1.0,
             param: Callable = None,
             heun: bool = True,
+            gamma_min: float = -15.,
+            gamma_max: float = 15.,
             pbar: bool = False
     ):
         """
@@ -46,6 +48,8 @@ class HeunSampler(BaseSampler):
             post_func=post_func,
             prior_sampler=prior_sampler,
             param=param,
+            gamma_min=gamma_min,
+            gamma_max=gamma_max,
             pbar=pbar
         )
         self.heun = heun
