@@ -28,7 +28,7 @@ class BinarizedScheduler(NoiseScheduler):
             n_bins: int = 100,
             gamma_min: float = -10,
             gamma_max: float = 10,
-            ema_rate: float = 0.999
+            ema_rate: float = 0.999,
     ):
         """
         Binarized noise scheduler as proposed in
@@ -41,21 +41,17 @@ class BinarizedScheduler(NoiseScheduler):
             "bin_limits", torch.linspace(gamma_min, gamma_max, n_bins+1)
         )
         self.register_buffer("dx", self.bin_limits[1]-self.bin_limits[0])
-        self.register_buffer(
-            "bin_values", torch.ones(n_bins)
-        )
-        self.register_buffer(
-            "bin_integral", torch.linspace(0, 1, n_bins+1)
-        )
+        self.register_buffer("bin_values", torch.ones(n_bins))
+        self.register_buffer("bin_integral", torch.arange(n_bins+1))
 
     def evaluate_integral(self, gamma: torch.Tensor) -> torch.Tensor:
-        idx_left = self.bin_search(gamma, self.bin_limits)
+        bin_num = self.bin_search(gamma, self.bin_limits)
         # Get the integral left from given gamma
-        integral_left = self.bin_integral[idx_left]
+        integral_left = self.bin_integral[bin_num]
         # Change in the integral per gamma
-        weight = self.bin_values[idx_left] / self.dx
+        weight = self.bin_values[bin_num] / self.dx
         # Integral value = left + additional gamma
-        return integral_left + (gamma - self.bin_limits[idx_left]) * weight
+        return integral_left + (gamma - self.bin_limits[bin_num]) * weight
 
     @property
     def normalization(self) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -86,12 +82,10 @@ class BinarizedScheduler(NoiseScheduler):
         # The denormalized time steps. Integral goes from gamma_min to
         # gamma_max, so we need inverse value.
         times_tilde = (1-timesteps) * time_scale + time_shift
-        idx_left = self.bin_search(times_tilde, self.bin_integral)
-        gamma_left = self.bin_limits[idx_left]
-        delta_gamma = (times_tilde - self.bin_integral[idx_left]) * self.dx / (
-                self.bin_integral[idx_left+1]-self.bin_integral[idx_left]
-        )
-        return gamma_left + delta_gamma
+        bin_num = self.bin_search(times_tilde, self.bin_integral)
+        gamma_left = self.bin_limits[bin_num]
+        weight = self.dx / self.bin_values[bin_num]
+        return gamma_left + weight * (times_tilde - self.bin_integral[bin_num])
 
     @torch.no_grad()
     def update(
@@ -101,10 +95,10 @@ class BinarizedScheduler(NoiseScheduler):
     ) -> None:
         ## EMA update with counting number of indices
         # Get indices
-        idx_bin = self.bin_search(gamma, self.bin_limits)
+        bin_num = self.bin_search(gamma, self.bin_limits)
 
         # Count number of indices
-        num_idx = torch.bincount(idx_bin, minlength=self.n_bins)
+        num_idx = torch.bincount(bin_num, minlength=self.n_bins)
 
         # Factor for original value is ema_rate ^ number of appearances
         factors = self.ema_rate ** num_idx
@@ -112,9 +106,9 @@ class BinarizedScheduler(NoiseScheduler):
 
         # Add the target values times a scattered rate taking the
         # power into account.
-        scattered_factors = (1-factors[idx_bin]) / num_idx[idx_bin]
+        scattered_factors = (1-factors[bin_num]) / num_idx[bin_num]
         self.bin_values.scatter_add_(
-            dim=0, index=idx_bin, src=scattered_factors*target
+            dim=0, index=bin_num, src=scattered_factors*target
         )
 
         # Update the integral values
