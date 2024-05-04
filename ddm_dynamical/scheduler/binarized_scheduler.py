@@ -50,12 +50,16 @@ class BinarizedScheduler(NoiseScheduler):
 
     def evaluate_integral(self, gamma: torch.Tensor) -> torch.Tensor:
         idx_left = self.bin_search(gamma, self.bin_limits)
+        # Get the integral left from given gamma
         integral_left = self.bin_integral[idx_left]
+        # Change in the integral per gamma
         weight = self.bin_values[idx_left] / self.dx
+        # Integral value = left + additional gamma
         return integral_left + (gamma - self.bin_limits[idx_left]) * weight
 
     @property
     def normalization(self) -> Tuple[torch.Tensor, torch.Tensor]:
+        # Estimate normalization values such that gamma_min=0 and gamma_max=1
         int_min = self.evaluate_integral(self.gamma_min)
         int_max = self.evaluate_integral(self.gamma_max)
         return int_min, int_max-int_min
@@ -63,16 +67,24 @@ class BinarizedScheduler(NoiseScheduler):
     def bin_search(
             self, value: torch.Tensor, search_in: torch.Tensor
     ) -> torch.Tensor:
+        # Search for the bin number of a given ˙value˙ in a given `search_in`
+        # tensor.
         return (
             torch.searchsorted(search_in, value, right=True)-1
         ).clamp(min=0, max=self.n_bins-1)
 
     def get_density(self, gamma: torch.Tensor) -> torch.Tensor:
+        # Get the probability density for a given `gamma` value. Given as local
+        # slope of the CDF, the density corresponds to the bin value scaled by
+        # the scale of the whole integral (such that the CDF = 1).
         bin_num = self.bin_search(gamma, self.bin_limits)
         return self.bin_values[bin_num] / self.normalization[1]
 
     def forward(self, timesteps: torch.Tensor) -> torch.Tensor:
+        # Do a linear interpolation to map from `timesteps` to gamma value.
         time_shift, time_scale = self.normalization
+        # The denormalized time steps. Integral goes from gamma_min to
+        # gamma_max, so we need inverse value.
         times_tilde = (1-timesteps) * time_scale + time_shift
         idx_left = self.bin_search(times_tilde, self.bin_integral)
         gamma_left = self.bin_limits[idx_left]
