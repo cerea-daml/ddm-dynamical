@@ -10,6 +10,7 @@
 
 # System modules
 import logging
+from typing import Tuple
 
 # External modules
 import torch
@@ -39,82 +40,45 @@ class BinarizedScheduler(NoiseScheduler):
         self.register_buffer(
             "bin_limits", torch.linspace(gamma_min, gamma_max, n_bins+1)
         )
+        self.register_buffer("dx", self.bin_limits[1]-self.bin_limits[0])
         self.register_buffer(
             "bin_values", torch.ones(n_bins)
         )
         self.register_buffer(
-            "_bin_times", torch.linspace(1, 0, n_bins+1)
+            "bin_integral", torch.linspace(0, 1, n_bins+1)
         )
-        self.cdf_norm = 1.
+
+    def evaluate_integral(self, gamma: torch.Tensor) -> torch.Tensor:
+        idx_left = self.bin_search(gamma, self.bin_limits)
+        integral_left = self.bin_integral[idx_left]
+        weight = self.bin_values[idx_left] / self.dx
+        return integral_left + (gamma - self.bin_limits[idx_left]) * weight
 
     @property
-    def bin_times(self) -> torch.Tensor:
-        return self._bin_times
+    def normalization(self) -> Tuple[torch.Tensor, torch.Tensor]:
+        int_min = self.evaluate_integral(self.gamma_min)
+        int_max = self.evaluate_integral(self.gamma_max)
+        return int_min, int_max-int_min
 
-    @torch.no_grad()
-    def _update_times(self):
-        min_left = self.get_bin_num(self.gamma_min)
-        min_right = min_left + 1
-        max_left = self.get_bin_num(self.gamma_max)
-        max_right = max_left + 1
-
-        delta_bin = self.bin_limits[1] - self.bin_limits[0]
-
-        # Base value given by integration from gamma_min to nearest gamma
-        # larger than gamma_min
-        self._bin_times = torch.zeros_like(self._bin_times)
-        self._bin_times[:] = -self.bin_values[min_left] * (
-                self.bin_limits[min_right] - self.gamma_min
-        )
-
-        # Add regular bin values for larger than gamma_min
-        self._bin_times[min_right + 1:] += torch.cumsum(
-            -self.bin_values[min_right:], dim=0
-        ) * delta_bin
-
-        # Fill bin times for smaller than gamma_min by linear interpolation
-        intercept = self._bin_times[min_right] / (
-                self.bin_limits[min_right] - self.gamma_min
-        )
-        self._bin_times[:min_right] -= (
-            self.bin_limits[min_right] - self.bin_limits[:min_right]
-        ) * intercept
-
-        # Get CDF norm such that gamma_max is 1 by linear interpolation
-        intercept = (
-            self._bin_times[max_right] - self._bin_times[max_left]
-        ) / (
-            self.bin_limits[max_right] - self.bin_limits[max_left]
-        )
-        distance = (self.bin_limits[max_right] - self.gamma_max)
-        self.cdf_norm = -self._bin_times[max_right] + distance * intercept
-        self._bin_times = self._bin_times / self.cdf_norm + 1
-
-    def get_bin_num(self, gamma: torch.Tensor) -> torch.Tensor:
-        return (
-            torch.searchsorted(self.bin_limits, gamma, right=True)-1
-        ).clamp(min=0, max=self.n_bins-1)
-
-    def get_left_time(
-            self, timesteps: torch.Tensor
+    def bin_search(
+            self, value: torch.Tensor, search_in: torch.Tensor
     ) -> torch.Tensor:
-        ordered_left = (
-            torch.searchsorted(-self.bin_times, -timesteps, right=True,)-1
+        return (
+            torch.searchsorted(search_in, value, right=True)-1
         ).clamp(min=0, max=self.n_bins-1)
-        return ordered_left
 
     def get_density(self, gamma: torch.Tensor) -> torch.Tensor:
-        bin_num = self.get_bin_num(gamma)
-        return self.bin_values[bin_num] / self.cdf_norm
+        bin_num = self.bin_search(gamma, self.bin_limits)
+        return self.bin_values[bin_num] / self.normalization[1]
 
     def forward(self, timesteps: torch.Tensor) -> torch.Tensor:
-        idx_left = self.get_left_time(timesteps)
+        time_shift, time_scale = self.normalization
+        times_tilde = (1-timesteps) * time_scale + time_shift
+        idx_left = self.bin_search(times_tilde, self.bin_integral)
         gamma_left = self.bin_limits[idx_left]
-        delta_gamma = (
-                self.bin_limits[idx_left+1]-gamma_left
-        ) / (
-                self.bin_times[idx_left+1]-self.bin_times[idx_left]
-        ) * (timesteps - self.bin_times[idx_left])
+        delta_gamma = (times_tilde - self.bin_integral[idx_left]) * self.dx / (
+                self.bin_integral[idx_left+1]-self.bin_integral[idx_left]
+        )
         return gamma_left + delta_gamma
 
     @torch.no_grad()
@@ -125,7 +89,7 @@ class BinarizedScheduler(NoiseScheduler):
     ) -> None:
         ## EMA update with counting number of indices
         # Get indices
-        idx_bin = self.get_bin_num(gamma)
+        idx_bin = self.bin_search(gamma, self.bin_limits)
 
         # Count number of indices
         num_idx = torch.bincount(idx_bin, minlength=self.n_bins)
@@ -140,4 +104,6 @@ class BinarizedScheduler(NoiseScheduler):
         self.bin_values.scatter_add_(
             dim=0, index=idx_bin, src=scattered_factors*target
         )
-        self._update_times()
+
+        # Update the integral values
+        self.bin_integral[1:] = torch.cumsum(self.bin_values, dim=0)
