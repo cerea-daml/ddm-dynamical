@@ -38,7 +38,7 @@ class BinarizedScheduler(NoiseScheduler):
         self.n_bins = n_bins
         self.ema_rate = ema_rate
         self.register_buffer(
-            "bin_limits", torch.linspace(gamma_min, gamma_max, n_bins+1)
+            "bin_limits", torch.linspace(-20, 20, n_bins+1)
         )
         self.register_buffer("dx", self.bin_limits[1]-self.bin_limits[0])
         self.register_buffer("bin_values", torch.ones(n_bins))
