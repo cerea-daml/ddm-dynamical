@@ -41,8 +41,8 @@ class BinarizedScheduler(NoiseScheduler):
             "bin_limits", torch.linspace(-20, 20, n_bins+1)
         )
         self.register_buffer("dx", self.bin_limits[1]-self.bin_limits[0])
-        self.register_buffer("bin_values", torch.ones(n_bins))
-        self.register_buffer("bin_integral", torch.arange(n_bins+1))
+        self.register_buffer("bin_values", torch.ones(n_bins).float())
+        self.register_buffer("bin_integral", torch.arange(n_bins+1).float())
 
     def evaluate_integral(self, gamma: torch.Tensor) -> torch.Tensor:
         bin_num = self.bin_search(gamma, self.bin_limits)
