@@ -59,7 +59,7 @@ def sample_time(
 
 
 def normalize_gamma(
-        gamma: Any, gamma_min: float = -15., gamma_max: float = 15
+        gamma: Any, gamma_min: float = -20., gamma_max: float = 20
 ) -> Any:
     return (gamma-gamma_min) / (gamma_max-gamma_min)
 
