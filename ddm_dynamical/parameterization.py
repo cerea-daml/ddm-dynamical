@@ -42,6 +42,17 @@ class EPSParam(torch.nn.Module):
     ) -> torch.Tensor:
         return (noise - prediction).pow(2)
 
+    def get_noise(
+            self,
+            prediction: torch.Tensor,
+            in_data: torch.Tensor,
+            alpha: torch.Tensor,
+            sigma: torch.Tensor,
+            gamma: torch.Tensor,
+            *args, **kwargs
+    ):
+        return prediction
+
     def forward(
             self,
             prediction: torch.Tensor,
@@ -69,6 +80,17 @@ class VParam(torch.nn.Module):
         v_target = alpha * noise - sigma * target
         v_weight = (torch.exp(-gamma) + 1)
         return (v_target - prediction).pow(2) / v_weight
+
+    def get_noise(
+            self,
+            prediction: torch.Tensor,
+            in_data: torch.Tensor,
+            alpha: torch.Tensor,
+            sigma: torch.Tensor,
+            gamma: torch.Tensor,
+            *args, **kwargs
+    ):
+        return sigma * in_data + alpha * prediction
 
     def forward(
             self,
