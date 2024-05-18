@@ -26,6 +26,7 @@ class HeunSampler(BaseSampler):
             self,
             scheduler: "ddm_dynamical.scheduler.noise_scheduler.NoiseScheduler",
             timesteps: int = 20,
+            final_cleaning: bool = True,
             denoising_network: torch.nn.Module = None,
             pre_func: Callable = None,
             post_func: Callable = None,
@@ -52,8 +53,45 @@ class HeunSampler(BaseSampler):
             gamma_max=gamma_max,
             pbar=pbar
         )
+        self.final_cleaning = final_cleaning
         self.heun = heun
         self.grad_scale = grad_scale
+
+    def reconstruct(
+            self,
+            in_tensor: torch.Tensor,
+            n_steps: int = 250,
+            **conditioning: torch.Tensor
+    ) -> torch.Tensor:
+        latent = self.reconstruct(in_tensor, n_steps, **conditioning)
+        if self.final_cleaning:
+            return self.cleaning_step(latent, **conditioning)
+        return latent
+
+    def cleaning_step(
+            self, latent: torch.Tensor, **conditioning
+    ) -> torch.Tensor:
+        gamma_s = self.scheduler(
+            torch.zero(1, 1, device=latent.device, dtype=latent.dtype)
+        )
+        var_s = torch.sigmoid(-gamma_s)
+        alpha_s = (1 - var_s).sqrt()
+        sigma_s = var_s.sqrt()
+        prediction = self.estimate_prediction(
+            in_data=latent,
+            alpha=alpha_s,
+            sigma=sigma_s,
+            gamma=gamma_s,
+            **conditioning
+        )
+        return self.param(
+            prediction=prediction,
+            in_data=latent,
+            alpha=alpha_s,
+            sigma=sigma_s,
+            gamma=gamma_s,
+            **conditioning
+        )
 
     def forward(
             self,
@@ -101,7 +139,7 @@ class HeunSampler(BaseSampler):
         grad = (in_exploded - denoised) / sigma_tilde_s / self.grad_scale
         out_exploded = in_exploded + grad * dt
         out_preserved = out_exploded * alpha_t
-        if prev_step > 0 and self.heun:
+        if self.heun:
             # Heun step
             prediction = self.estimate_prediction(
                 in_data=out_preserved,
