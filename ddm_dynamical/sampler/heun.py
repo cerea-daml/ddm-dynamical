@@ -72,7 +72,7 @@ class HeunSampler(BaseSampler):
             self, latent: torch.Tensor, **conditioning
     ) -> torch.Tensor:
         gamma_s = self.scheduler(
-            torch.zero(1, 1, device=latent.device, dtype=latent.dtype)
+            torch.zeros(1, 1, device=latent.device, dtype=latent.dtype)
         )
         var_s = torch.sigmoid(-gamma_s)
         alpha_s = (1 - var_s).sqrt()
