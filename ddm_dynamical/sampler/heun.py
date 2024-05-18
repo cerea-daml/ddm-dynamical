@@ -63,7 +63,7 @@ class HeunSampler(BaseSampler):
             n_steps: int = 250,
             **conditioning: torch.Tensor
     ) -> torch.Tensor:
-        latent = self.reconstruct(in_tensor, n_steps, **conditioning)
+        latent = super().reconstruct(in_tensor, n_steps, **conditioning)
         if self.final_cleaning:
             return self.cleaning_step(latent, **conditioning)
         return latent
