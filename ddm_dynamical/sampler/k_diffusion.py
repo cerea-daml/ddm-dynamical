@@ -32,7 +32,9 @@ class KDiffusionSampler(BaseSampler):
             post_func: Callable = None,
             prior_sampler: Callable = None,
             param: Callable = None,
-            pbar: bool = False
+            gamma_min: float = -15.,
+            gamma_max: float = 15.,
+            pbar: bool = True,
     ):
         super().__init__(
             scheduler=scheduler,
@@ -42,6 +44,8 @@ class KDiffusionSampler(BaseSampler):
             post_func=post_func,
             prior_sampler=prior_sampler,
             param=param,
+            gamma_min=gamma_min,
+            gamma_max=gamma_max,
             pbar=pbar
         )
         self.k_func = k_func
