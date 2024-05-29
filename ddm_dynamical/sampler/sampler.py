@@ -11,7 +11,7 @@
 
 # System modules
 import logging
-from typing import Callable
+from typing import Callable, Dict, Any
 
 # External modules
 import torch
@@ -39,6 +39,7 @@ class BaseSampler(torch.nn.Module):
             gamma_min: float = -15.,
             gamma_max: float = 15.,
             pbar: bool = True,
+            tensor_kwargs: Dict[str, Any] = None
     ):
         super().__init__()
         self.denoising_network = denoising_network
@@ -51,6 +52,7 @@ class BaseSampler(torch.nn.Module):
         self.gamma_max = gamma_max
         self.scheduler = scheduler
         self.pbar = pbar
+        self.tensor_kwargs = tensor_kwargs
 
     def estimate_prediction(
             self,
@@ -110,8 +112,9 @@ class BaseSampler(torch.nn.Module):
             device=in_tensor.device, dtype=in_tensor.dtype,
             layout=in_tensor.layout
         )[1:n_steps+1]
+        time_steps = reversed(time_steps)
         if self.pbar:
-            time_steps = tqdm(reversed(time_steps), total=n_steps, leave=False)
+            time_steps = tqdm(time_steps, total=n_steps, leave=False)
         for step in time_steps:
             denoised_tensor = self(
                 denoised_tensor, step, **conditioning

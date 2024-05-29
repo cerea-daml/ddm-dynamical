@@ -101,8 +101,8 @@ class HeunSampler(BaseSampler):
     ) -> torch.Tensor:
         # Estimate coefficients
         prev_step = step - 1 / self.timesteps
-        gamma_t = self.scheduler(1 - step)
-        gamma_s = self.scheduler(1 - prev_step)
+        gamma_t = self.scheduler(step)
+        gamma_s = self.scheduler(prev_step)
         var_t = torch.sigmoid(-gamma_t)
         var_s = torch.sigmoid(-gamma_s)
         alpha_t = (1 - var_t).sqrt()
