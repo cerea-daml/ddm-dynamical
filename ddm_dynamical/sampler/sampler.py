@@ -39,7 +39,7 @@ class BaseSampler(torch.nn.Module):
             gamma_min: float = -15.,
             gamma_max: float = 15.,
             pbar: bool = True,
-            tensor_kwargs: Dict[str, Any] = None
+            sample_kwargs: Dict[str, Any] = None
     ):
         super().__init__()
         self.denoising_network = denoising_network
@@ -51,8 +51,26 @@ class BaseSampler(torch.nn.Module):
         self.gamma_min = gamma_min
         self.gamma_max = gamma_max
         self.scheduler = scheduler
+        self.sample_kwargs = sample_kwargs
         self.pbar = pbar
-        self.tensor_kwargs = tensor_kwargs
+
+    @property
+    def sample_kwargs(self) -> Dict[str, Any]:
+        if self._sample_kwargs is None:
+            try:
+                template = next(self.denoising_network.parameters())
+                self._sample_kwargs = {
+                    "device": template.device,
+                    "layout": template.layout,
+                    "dtype": template.dtype
+                }
+            except (StopIteration, AttributeError):
+                self._sample_kwargs = dict()
+        return self._sample_kwargs
+
+    @sample_kwargs.setter
+    def sample_kwargs(self, kwargs: Dict[str, Any] = None) -> None:
+        self._sample_kwargs = kwargs
 
     def estimate_prediction(
             self,
@@ -91,10 +109,7 @@ class BaseSampler(torch.nn.Module):
             sample_shape=torch.Size([]),
             **conditioning: torch.Tensor
     ) -> torch.Tensor:
-        prior_sample = self.prior_sampler(
-            next(self.denoising_network.parameters()),
-            sample_shape
-        )
+        prior_sample = self.prior_sampler(sample_shape, **self.sample_kwargs)
         denoised_data = self.reconstruct(
             prior_sample, self.timesteps, **conditioning
         )

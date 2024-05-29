@@ -56,8 +56,8 @@ def default_postprocessing(
 
 
 def default_prior_sample(
-        template_tensor: torch.Tensor,
-        sample_shape=torch.Size([])
+        sample_shape=torch.Size([]),
+        **sample_kwargs
 ) -> torch.Tensor:
     """
     Default function to draw a sample from the prior distribution for the
@@ -65,8 +65,5 @@ def default_prior_sample(
     """
     if not isinstance(sample_shape, torch.Size):
         sample_shape = torch.Size(sample_shape)
-    prior_sample = torch.randn(
-        sample_shape, device=template_tensor.device,
-        dtype=template_tensor.dtype, layout=template_tensor.layout
-    )
+    prior_sample = torch.randn(sample_shape, **sample_kwargs)
     return prior_sample
