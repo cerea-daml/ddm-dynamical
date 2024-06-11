@@ -22,8 +22,8 @@ from ddm_dynamical.weighting import ExponentialWeighting
 
 # Internal modules
 from data_modules import UnconditionalStateDataModule
-from module import UnconditionalModule
 from networks import UNeXt
+from unconditional import UnconditionalModule
 
 main_logger = logging.getLogger(__name__)
 

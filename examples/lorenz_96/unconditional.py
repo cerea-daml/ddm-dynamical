@@ -165,7 +165,7 @@ class UnconditionalModule(LightningModule):
         noise_var = torch.sigmoid(-gamma)
 
         # Estimate prediction
-        latent = self.encoder(data)
+        latent = self.encoder(data, mask=mask)
         noised_latent = (1 - noise_var).sqrt() * latent \
                         + noise_var.sqrt() * noise
         norm_gamma = utils.normalize_gamma(

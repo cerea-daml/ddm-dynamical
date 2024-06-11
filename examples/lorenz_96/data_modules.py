@@ -18,7 +18,7 @@ import torch
 from torch.utils.data import DataLoader
 
 # Internal modules
-from datasets import *
+from datasets import StateDataset
 
 main_logger = logging.getLogger(__name__)
 
@@ -32,42 +32,49 @@ class UnconditionalStateDataModule(LightningDataModule):
             pin_memory: bool = True
     ):
         super().__init__()
-        self._datasets = dict()
         self.data_path = data_path
         self.batch_size = batch_size
         self.n_workers = n_workers
         self.pin_memory = pin_memory
+        self._train_dataset = None
+        self._val_dataset = None
+        self._test_dataset = None
 
     def setup(self, stage: str) -> None:
-        self._datasets = {
-            "train": StateDataset(torch.load(
+        if stage == "fit":
+            print(self.data_path)
+            data = torch.load(
                 os.path.join(self.data_path, "traj_train.pt"),
                 map_location="cpu"
-            )),
-            "val": StateDataset(torch.load(
+            )
+            self._train_dataset = StateDataset(data)
+        if stage in ("fit", "validate"):
+            data = torch.load(
                 os.path.join(self.data_path, "traj_val.pt"),
                 map_location="cpu"
-            )),
-            "test": StateDataset(torch.load(
+            )
+            self._val_dataset = StateDataset(data)
+        elif stage in ("test", "predict"):
+            data = torch.load(
                 os.path.join(self.data_path, "traj_test.pt"),
                 map_location="cpu"
-            )),
-        }
+            )
+            self._test_dataset = StateDataset(data)
 
     def train_dataloader(self) -> DataLoader:
         return DataLoader(
-            self._datasets["train"], batch_size=self.batch_size, shuffle=True,
+            self._train_dataset, batch_size=self.batch_size, shuffle=True,
             num_workers=self.n_workers, pin_memory=self.pin_memory
         )
 
     def val_dataloader(self) -> DataLoader:
         return DataLoader(
-            self._datasets["val"], batch_size=self.batch_size, shuffle=False,
+            self._val_dataset, batch_size=self.batch_size, shuffle=False,
             num_workers=self.n_workers, pin_memory=self.pin_memory
         )
 
     def test_dataloader(self) -> DataLoader:
         return DataLoader(
-            self._datasets["test"], batch_size=self.batch_size, shuffle=False,
+            self._test_dataset, batch_size=self.batch_size, shuffle=False,
             num_workers=self.n_workers, pin_memory=self.pin_memory
         )
