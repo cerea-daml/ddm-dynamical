@@ -14,15 +14,15 @@ import logging
 # External modules
 import lightning.pytorch as pl
 
-from data_modules import UnconditionalStateDataModule
 from ddm_dynamical.encoder import GaussianEncoder
 from ddm_dynamical.decoder import GaussianDecoder
-from ddm_dynamical.sampler import DDIMSampler
+from ddm_dynamical.sampler import HeunSampler
 from ddm_dynamical.scheduler import BinarizedScheduler, EDMSamplingScheduler
-from ddm_dynamical.weighting import ELBOWeighting
-from ddm_dynamical.unconditional import UnconditionalModule
+from ddm_dynamical.weighting import ExponentialWeighting
 
 # Internal modules
+from data_modules import UnconditionalStateDataModule
+from module import UnconditionalModule
 from networks import UNeXt
 
 main_logger = logging.getLogger(__name__)
@@ -44,12 +44,13 @@ def train_model():
         encoder=encoder,
         decoder=decoder,
         scheduler=BinarizedScheduler(gamma_min=-10, gamma_max=10),
-        weighting=ELBOWeighting(),
+        weighting=ExponentialWeighting(),
         lr=3E-4,
-        sampler=DDIMSampler(
+        sampler=HeunSampler(
             scheduler=EDMSamplingScheduler(gamma_min=-10, gamma_max=10),
             denoising_network=denoising_network,
-            timesteps=100
+            timesteps=40,
+            heun=True
         )
     )
     main_logger.info("Initialized model")
