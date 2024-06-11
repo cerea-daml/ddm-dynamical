@@ -20,7 +20,7 @@ import torch
 
 # Internal modules
 from ddm_dynamical import utils
-from ddm_dynamical.weighting.elbo import ELBOWeighting
+from ddm_dynamical.weighting import ELBOWeighting
 
 
 logger = logging.getLogger(__name__)
