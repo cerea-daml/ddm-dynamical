@@ -1,10 +1,7 @@
-from .film import FilmLayer
-from .random_fourier import RandomFourierLayer
-from .embedding import SinusoidalEmbedding
+from .embedding import *
 
 
 __all__ = [
-    "FilmLayer",
-    "RandomFourierLayer",
+    "RandomFourierEmbedding",
     "SinusoidalEmbedding"
 ]
