@@ -18,7 +18,8 @@ import torch
 from tqdm import tqdm
 
 # Internal modules
-from ddm_dynamical.dynamical import Lorenz96, RK4Integrator
+from lorenz_96 import Lorenz96
+from integrator import RK4Integrator
 
 
 logger = logging.getLogger(__name__)
