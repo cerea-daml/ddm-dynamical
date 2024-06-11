@@ -28,8 +28,11 @@ class EDMSamplingScheduler(NoiseScheduler):
             sigma_max: float = 80,
             gamma_min: float = -10,
             gamma_max: float = 10,
+            learnable: bool = False
     ):
-        super().__init__(gamma_min=gamma_min, gamma_max=gamma_max)
+        super().__init__(
+            gamma_min=gamma_min, gamma_max=gamma_max, learnable=learnable
+        )
         self.rho = rho
         self.inv_rho = 1 / rho
         self.sigma_min = sigma_min

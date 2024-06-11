@@ -27,8 +27,11 @@ class EDMTrainingScheduler(NoiseScheduler):
             gamma_std: float = 2.,
             gamma_min: float = -10,
             gamma_max: float = 10,
+            learnable: bool = False
     ):
-        super().__init__(gamma_min=gamma_min, gamma_max=gamma_max)
+        super().__init__(
+            gamma_min=gamma_min, gamma_max=gamma_max, learnable=learnable
+        )
         self.register_buffer("gamma_mean", torch.tensor(gamma_mean))
         self.register_buffer("gamma_std", torch.tensor(gamma_std))
         self.density_dist = torch.distributions.Normal(

@@ -32,7 +32,9 @@ class PredefinedScheduler(NoiseScheduler):
         To set a predefined scheduler with equally distant time stepping from
         gamma min to gamma max.
         """
-        super().__init__(gamma_min=gamma_min, gamma_max=gamma_max)
+        super().__init__(
+            gamma_min=gamma_min, gamma_max=gamma_max, learnable=False
+        )
         self.register_buffer("time_gammas", time_gammas)
 
     def forward(self, timesteps: torch.Tensor) -> torch.Tensor:

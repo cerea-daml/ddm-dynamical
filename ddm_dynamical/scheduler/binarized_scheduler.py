@@ -29,13 +29,17 @@ class BinarizedScheduler(NoiseScheduler):
             gamma_min: float = -10,
             gamma_max: float = 10,
             ema_rate: float = 0.999,
-            gamma_limits: Tuple[float, float] = (-20, 20)
+            gamma_limits: Tuple[float, float] = (-20, 20),
+            learnable=False,
     ):
         """
         Binarized noise scheduler as proposed in
-        Kingma and Guo, `Understanding Diffusion Objectives as the ELBO with Simple Data Augmentation`.
+        Kingma and Guo, `Understanding Diffusion Objectives as the ELBO with
+        Simple Data Augmentation`.
         """
-        super().__init__(gamma_min=gamma_min, gamma_max=gamma_max)
+        super().__init__(
+            gamma_min=gamma_min, gamma_max=gamma_max, learnable=learnable
+        )
         self.n_bins = n_bins
         self.ema_rate = ema_rate
         self.register_buffer(
