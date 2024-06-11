@@ -24,8 +24,47 @@ __all__ = [
     "VParam",
     "DataParam",
     "FlowOTParam",
-    "EDMParam"
+    "EDMParam",
+    "ScoreParam"
 ]
+
+
+class ScoreParam(torch.nn.Module):
+    def estimate_errors(
+            self,
+            prediction: torch.Tensor,
+            in_data: torch.Tensor,
+            target: torch.Tensor,
+            noise: torch.Tensor,
+            alpha: torch.Tensor,
+            sigma: torch.Tensor,
+            gamma: torch.Tensor,
+            *args, **kwargs
+    ) -> torch.Tensor:
+        target_score = -noise/sigma
+        return sigma**2 * (target_score - prediction).pow(2)
+
+    def get_noise(
+            self,
+            prediction: torch.Tensor,
+            in_data: torch.Tensor,
+            alpha: torch.Tensor,
+            sigma: torch.Tensor,
+            gamma: torch.Tensor,
+            *args, **kwargs
+    ) -> torch.Tensor:
+        return -prediction * sigma
+
+    def forward(
+            self,
+            prediction: torch.Tensor,
+            in_data: torch.Tensor,
+            alpha: torch.Tensor,
+            sigma: torch.Tensor,
+            gamma: torch.Tensor,
+            *args, **kwargs
+    ) -> torch.Tensor:
+        return 1 / alpha * (in_data + sigma * prediction)
 
 
 class EPSParam(torch.nn.Module):
@@ -119,6 +158,17 @@ class DataParam(torch.nn.Module):
         data_weight = torch.exp(gamma)
         return data_weight * (target - prediction).pow(2)
 
+    def get_noise(
+            self,
+            prediction: torch.Tensor,
+            in_data: torch.Tensor,
+            alpha: torch.Tensor,
+            sigma: torch.Tensor,
+            gamma: torch.Tensor,
+            *args, **kwargs
+    ):
+        return ( in_data-alpha*prediction ) / sigma
+
     def forward(
             self,
             prediction: torch.Tensor,
@@ -132,6 +182,11 @@ class DataParam(torch.nn.Module):
 
 
 class FlowOTParam(torch.nn.Module):
+    def invert_gamma(self, gamma: torch.Tensor) -> torch.Tensor:
+        # Assuming FlowOTScheduler for sampling
+        # Eq. 65 Kingma and Gao, 2023
+        return torch.sigmoid(-gamma / 2)
+
     def estimate_errors(
             self,
             prediction: torch.Tensor,
@@ -148,6 +203,17 @@ class FlowOTParam(torch.nn.Module):
         o_weight = (1 + torch.exp(-gamma * 0.5)).pow(-2)
         return o_weight * (o_target - prediction).pow(2)
 
+    def get_noise(
+            self,
+            prediction: torch.Tensor,
+            in_data: torch.Tensor,
+            alpha: torch.Tensor,
+            sigma: torch.Tensor,
+            gamma: torch.Tensor,
+            *args, **kwargs
+    ):
+        return in_data - (1-self.get_time(gamma)) * prediction
+
     def forward(
             self,
             prediction: torch.Tensor,
@@ -157,10 +223,7 @@ class FlowOTParam(torch.nn.Module):
             gamma: torch.Tensor,
             *args, **kwargs
     ):
-        # Assuming FlowOTScheduler for sampling
-        # Invert Eq. 63 Kingma and Gao, 2023
-        time = torch.sigmoid(-gamma/2)
-        return in_data - prediction * time
+        return in_data + self.get_time(gamma) * prediction
 
 
 class EDMParam(torch.nn.Module):
@@ -195,6 +258,25 @@ class EDMParam(torch.nn.Module):
         # Eq. 125
         f_weighting = torch.exp(-gamma) / self.sigma_data**2 + 1
         return (f_target-prediction).pow(2)/f_weighting
+
+    def get_noise(
+            self,
+            prediction: torch.Tensor,
+            in_data: torch.Tensor,
+            alpha: torch.Tensor,
+            sigma: torch.Tensor,
+            gamma: torch.Tensor,
+            *args, **kwargs
+    ):
+        state = self.forward(
+            prediction,
+            in_data,
+            alpha,
+            sigma,
+            gamma,
+            *args, ** kwargs
+        )
+        return (in_data - alpha * state) / sigma
 
     def forward(
             self,
