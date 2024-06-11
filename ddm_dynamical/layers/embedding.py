@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 __all__ = [
     "SinusoidalEmbedding",
-    "RandomFourierEmbedding"
+    "RandomFourierLayer"
 ]
 
 
@@ -50,7 +50,7 @@ class SinusoidalEmbedding(torch.nn.Module):
         return embedding
 
 
-class RandomFourierEmbedding(torch.nn.Module):
+class RandomFourierLayer(torch.nn.Module):
     def __init__(
             self,
             in_features: int = 3,

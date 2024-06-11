@@ -2,6 +2,6 @@ from .embedding import *
 
 
 __all__ = [
-    "RandomFourierEmbedding",
+    "RandomFourierLayer",
     "SinusoidalEmbedding"
 ]
