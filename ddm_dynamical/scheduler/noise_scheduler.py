@@ -14,7 +14,6 @@ import logging
 
 # External modules
 import torch
-from torch.func import grad
 
 # Internal modules
 
@@ -27,13 +26,32 @@ class NoiseScheduler(torch.nn.Module):
             self,
             gamma_min: float = -10,
             gamma_max: float = 10,
+            learnable: bool = False
     ):
         super().__init__()
-        self.gamma_min = gamma_min if isinstance(gamma_min, torch.Tensor) \
-            else torch.tensor(gamma_min)
-        self.gamma_max = gamma_max if isinstance(gamma_max, torch.Tensor) \
-            else torch.tensor(gamma_max)
+        self.register_parameter(
+            "gamma_min",
+            torch.nn.Parameter(
+                torch.tensor(gamma_min), requires_grad=learnable
+            )
+        )
+        self.register_parameter(
+            "gamma_max",
+            torch.nn.Parameter(
+                torch.tensor(gamma_max), requires_grad=learnable
+            )
+        )
         self.eps = 1E-9
+
+    @property
+    def time_scale(self) -> torch.Tensor:
+        t0 = self.inverse_schedule(self.gamma_max)
+        t1 = self.inverse_schedule(self.gamma_min)
+        return t1-t0
+
+    @property
+    def time_shift(self) -> torch.Tensor:
+        return self.inverse_schedule(self.gamma_max)
 
     def get_density(self, gamma: torch.Tensor) -> torch.Tensor:
         pass

@@ -34,10 +34,6 @@ class EDMSamplingScheduler(NoiseScheduler):
         self.inv_rho = 1 / rho
         self.sigma_min = sigma_min
         self.sigma_max = sigma_max
-        t0 = self.inverse_scheduler(gamma_max)
-        t1 = self.inverse_scheduler(gamma_min)
-        self.register_buffer("time_scale", t1-t0)
-        self.register_buffer("time_shift", t0)
 
     def inverse_scheduler(
             self,

@@ -26,13 +26,12 @@ class CosineScheduler(NoiseScheduler):
             shift: float = 0,
             gamma_min: float = -10,
             gamma_max: float = 10,
+            learnable: bool = False
     ):
-        super().__init__(gamma_min=gamma_min, gamma_max=gamma_max)
+        super().__init__(
+            gamma_min=gamma_min, gamma_max=gamma_max, learnable=learnable
+        )
         self.shift = shift
-        t0 = self.inverse_schedule(gamma_max)
-        t1 = self.inverse_schedule(gamma_min)
-        self.register_buffer("time_scale", t1-t0)
-        self.register_buffer("time_shift", t0)
 
     def inverse_schedule(self, gamma) -> torch.Tensor:
         factor = torch.exp(-torch.tensor(gamma) * 0.5 - self.shift)
