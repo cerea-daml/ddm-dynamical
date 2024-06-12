@@ -44,12 +44,12 @@ class NoiseScheduler(torch.nn.Module):
         self.eps = 1E-9
 
     def get_time_scale(self) -> torch.Tensor:
-        t0 = self.inverse_schedule(self.gamma_max)
-        t1 = self.inverse_schedule(self.gamma_min)
+        t0 = self.inverse_scheduler(self.gamma_max)
+        t1 = self.inverse_scheduler(self.gamma_min)
         return t1-t0
 
     def get_time_shift(self) -> torch.Tensor:
-        return self.inverse_schedule(self.gamma_max)
+        return self.inverse_scheduler(self.gamma_max)
 
     def truncate_time(self, timesteps: torch.Tensor) -> torch.Tensor:
         return self.get_time_shift() + self.get_time_scale() * timesteps

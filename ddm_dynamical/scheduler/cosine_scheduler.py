@@ -33,7 +33,7 @@ class CosineScheduler(NoiseScheduler):
         )
         self.shift = shift
 
-    def inverse_schedule(self, gamma) -> torch.Tensor:
+    def inverse_scheduler(self, gamma) -> torch.Tensor:
         factor = torch.exp(-torch.tensor(gamma) * 0.5 - self.shift)
         return 2 / torch.pi * torch.arctan(factor)
 
