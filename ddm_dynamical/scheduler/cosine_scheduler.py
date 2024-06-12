@@ -39,9 +39,9 @@ class CosineScheduler(NoiseScheduler):
 
     def get_density(self, gamma: torch.Tensor) -> torch.Tensor:
         return 1/torch.cosh(gamma * 0.5 - self.shift) / (2 * torch.pi) \
-            / self.time_scale
+            / self.get_time_scale()
 
     def forward(self, timesteps: torch.Tensor) -> torch.Tensor:
-        truncated_time = self.time_shift + self.time_scale * timesteps
+        truncated_time = self.truncate_time(timesteps)
         gamma = -2 * torch.log(torch.tan(torch.pi*truncated_time*0.5))
         return gamma + 2 * self.shift

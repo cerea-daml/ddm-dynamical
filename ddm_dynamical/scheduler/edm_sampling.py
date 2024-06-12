@@ -40,10 +40,10 @@ class EDMSamplingScheduler(NoiseScheduler):
 
     def inverse_scheduler(
             self,
-            gamma,
+            gamma: torch.Tensor,
     ) -> torch.Tensor:
-        numerator = torch.exp(-torch.tensor(gamma) * 0.5 * self.inv_rho) \
-                    - self.sigma_max ** self.inv_rho
+        numerator = (torch.exp(-gamma * 0.5 * self.inv_rho)
+                     - self.sigma_max ** self.inv_rho)
         denom = self.sigma_min ** self.inv_rho - self.sigma_max  ** self.inv_rho
         return 1 - numerator / denom
 
@@ -52,10 +52,10 @@ class EDMSamplingScheduler(NoiseScheduler):
         denom = (2*self.rho)*(
                 self.sigma_max**self.inv_rho-self.sigma_min**self.inv_rho
         )
-        return num / denom / self.time_scale
+        return num / denom / self.get_time_scale()
 
     def forward(self, timesteps: torch.Tensor) -> torch.Tensor:
-        truncated_time = self.time_shift + self.time_scale * timesteps
+        truncated_time = self.truncate_time(timesteps)
         factor = self.sigma_max ** self.inv_rho \
                  + (1-truncated_time) \
                  * (self.sigma_min**self.inv_rho-self.sigma_max**self.inv_rho)

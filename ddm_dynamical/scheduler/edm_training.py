@@ -46,8 +46,8 @@ class EDMTrainingScheduler(NoiseScheduler):
 
     def get_density(self, gamma: torch.Tensor) -> torch.Tensor:
         density = self.density_dist.log_prob(gamma).exp()
-        return density / self.time_scale
+        return density / self.get_time_scale()
 
     def forward(self, timesteps: torch.Tensor) -> torch.Tensor:
-        truncated_time = self.time_shift + self.time_scale * timesteps
+        truncated_time = self.truncate_time(timesteps)
         return -self.density_dist.icdf(truncated_time)
