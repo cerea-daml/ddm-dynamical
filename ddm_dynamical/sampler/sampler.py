@@ -72,13 +72,23 @@ class BaseSampler(torch.nn.Module):
     def sample_kwargs(self, kwargs: Dict[str, Any] = None) -> None:
         self._sample_kwargs = kwargs
 
+    def convert_step(self, step: torch.Tensor):
+        gamma = self.scheduler(step)
+        alpha_sq = torch.sigmoid(gamma)
+        alpha = alpha_sq.sqrt()
+        sigma = (1-alpha_sq).sqrt()
+        return {
+            "step": step, "gamma": gamma, "alpha_sq": alpha_sq,
+            "alpha": alpha, "sigma": sigma
+        }
+
     def estimate_prediction(
             self,
             in_data: torch.Tensor,
             alpha: torch.Tensor,
             sigma: torch.Tensor,
             gamma: torch.Tensor,
-            **conditioning: torch.Tensor
+            **conditioning: Dict[str, torch.Tensor]
     ) -> torch.Tensor:
         in_tensor = self.pre_func(
             in_data=in_data,
@@ -107,7 +117,7 @@ class BaseSampler(torch.nn.Module):
     def sample(
             self,
             sample_shape=torch.Size([]),
-            **conditioning: torch.Tensor
+            **conditioning: Dict[str, torch.Tensor]
     ) -> torch.Tensor:
         prior_sample = self.prior_sampler(sample_shape, **self.sample_kwargs)
         denoised_data = self.reconstruct(
@@ -119,27 +129,30 @@ class BaseSampler(torch.nn.Module):
             self,
             in_tensor: torch.Tensor,
             n_steps: int = 250,
-            **conditioning: torch.Tensor
+            **conditioning: Dict[str, torch.Tensor]
     ) -> torch.Tensor:
         denoised_tensor = in_tensor
         time_steps = torch.linspace(
-            0, 1, self.timesteps+1,
+            1, 0, self.timesteps+1,
             device=in_tensor.device, dtype=in_tensor.dtype,
             layout=in_tensor.layout
-        )[1:n_steps+1]
-        time_steps = reversed(time_steps)
+        )[-n_steps-1:]
+        pbar = enumerate(time_steps[1:])
         if self.pbar:
-            time_steps = tqdm(time_steps, total=n_steps, leave=False)
-        for step in time_steps:
+            pbar = tqdm(pbar, total=n_steps, leave=False)
+        for k, next_step in pbar:
+            curr_stats = self.convert_step(time_steps[k])
+            next_stats = self.convert_step(next_step)
             denoised_tensor = self(
-                denoised_tensor, step, **conditioning
+                denoised_tensor, curr_stats, next_stats, **conditioning
             )
         return denoised_tensor
 
     def forward(
             self,
             in_data: torch.Tensor,
-            step: torch.Tensor,
-            **conditioning: torch.Tensor
+            curr_stats: Dict[str, torch.Tensor],
+            next_stats: Dict[str, torch.Tensor],
+            **conditioning: Dict[str, torch.Tensor]
     ) -> torch.Tensor:
         pass
