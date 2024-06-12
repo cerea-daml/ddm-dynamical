@@ -55,8 +55,8 @@ class KDiffusionSampler(BaseSampler):
             in_tensor: torch.Tensor,
             gamma: torch.Tensor
     ) -> torch.Tensor:
-        scaling_factor = (1 + 1/gamma.exp()).sqrt()
-        return in_tensor * scaling_factor
+        alpha = torch.sigmoid(gamma).sqrt()
+        return in_tensor / alpha
 
     def denoise_step(
             self,
@@ -69,7 +69,7 @@ class KDiffusionSampler(BaseSampler):
         alpha = (1-var_preserved).sqrt()
         sigma = var_preserved.sqrt()
         gamma = torch.log(1/var_exploded)
-        scaled_in_state = in_state / (var_exploded + 1).sqrt()
+        scaled_in_state = in_state * alpha
         prediction = self.estimate_prediction(
             in_data=scaled_in_state,
             alpha=alpha,
@@ -93,11 +93,10 @@ class KDiffusionSampler(BaseSampler):
             **conditioning: torch.Tensor
     ) -> torch.Tensor:
         time_steps = torch.linspace(
-            0, 1, self.timesteps+1,
+            1, 0, self.timesteps+1,
             device=in_tensor.device, dtype=in_tensor.dtype,
             layout=in_tensor.layout
-        )[0:n_steps+1]
-        time_steps = torch.flip(time_steps, dims=(0, ))
+        )[-n_steps-1:]
         gammas = self.scheduler(time_steps)
         sigma_tildes = gammas.exp()**(-0.5)
         in_tensor_exploded = self.input_to_exploding(in_tensor, gammas[0])
