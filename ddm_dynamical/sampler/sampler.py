@@ -82,7 +82,7 @@ class BaseSampler(torch.nn.Module):
             "alpha": alpha, "sigma": sigma
         }
 
-    def estimate_denoised(
+    def estimate_prediction(
             self,
             in_data: torch.Tensor,
             alpha: torch.Tensor,
@@ -111,6 +111,23 @@ class BaseSampler(torch.nn.Module):
             gamma=gamma,
             **conditioning
         )
+        return prediction
+
+    def estimate_denoised(
+            self,
+            in_data: torch.Tensor,
+            alpha: torch.Tensor,
+            sigma: torch.Tensor,
+            gamma: torch.Tensor,
+            **conditioning: Dict[str, torch.Tensor]
+    ) -> torch.Tensor:
+        prediction = self.estimate_prediction(
+            in_data=in_data,
+            alpha=alpha,
+            sigma=sigma,
+            gamma=gamma,
+            **conditioning
+        )
         denoised = self.param(
             prediction=prediction,
             in_data=in_data,
@@ -120,6 +137,8 @@ class BaseSampler(torch.nn.Module):
             **conditioning
         )
         return denoised
+
+
 
     @torch.no_grad()
     def sample(

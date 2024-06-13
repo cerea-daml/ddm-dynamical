@@ -38,7 +38,7 @@ class DDIMSampler(BaseSampler):
             gamma_min: float = -15.,
             gamma_max: float = 15.,
             pbar: bool = True,
-            sample_kwargs: Dict[str, Any] = None
+            sample_kwargs: Dict[str, Any] = None,
     ):
         super().__init__(
             scheduler=scheduler,
@@ -57,19 +57,18 @@ class DDIMSampler(BaseSampler):
         self.eta = eta
 
     def _estimate_stoch_level(self, alpha_sq_curr, alpha_sq_next):
+        stoch_level_sq = (
+             (1 - alpha_sq_next + 1E-9) / (1 - alpha_sq_curr + 1E-9)
+             * (1 - (alpha_sq_curr + 1E-9) / (alpha_sq_next + 1E-9))
+        )
         if self.ddpm:
-            sigma_t_2 = (1 - alpha_sq_next + 1E-9) / (1 - alpha_sq_curr + 1E-9) \
-                        * (1 - (alpha_sq_curr + 1E-9) / (alpha_sq_next + 1E-9))
-            det_level = (1 - alpha_sq_next - sigma_t_2).sqrt()
             stoch_level = torch.sqrt(
                 1 - (alpha_sq_curr + 1E-9) / (alpha_sq_next + 1E-9)
             )
         else:
-            stoch_level = torch.sqrt(
-                (1 - alpha_sq_next + 1E-9) / (1 - alpha_sq_curr + 1E-9)
-            ) * torch.sqrt(1 - (alpha_sq_curr + 1E-9) / (alpha_sq_next + 1E-9))
-            stoch_level = self.eta * stoch_level
-            det_level = (1 - alpha_sq_next - stoch_level.pow(2)).sqrt()
+            stoch_level_sq *= self.eta**2
+            stoch_level = stoch_level_sq.sqrt()
+        det_level = (1 - alpha_sq_next - stoch_level_sq).sqrt()
         return det_level, stoch_level
 
     def forward(
@@ -79,11 +78,6 @@ class DDIMSampler(BaseSampler):
             next_stats: Dict[str, torch.Tensor],
             **conditioning: Dict[str, torch.Tensor]
     ) -> torch.Tensor:
-        noise_level = self._estimate_stoch_level(
-            alpha_sq_curr=curr_stats["alpha_sq"],
-            alpha_sq_next=next_stats["alpha_sq"]
-        )
-
         # Estimate predictions
         prediction = self.estimate_prediction(
             in_data=in_data,
@@ -100,9 +94,24 @@ class DDIMSampler(BaseSampler):
             gamma=curr_stats["gamma"],
             **conditioning
         )
+        if next_stats["step"] == 0:
+            return state
 
-        if next_stats["step"] > 0:
-            noise = torch.randn_like(in_data)
-            state = next_stats["alpha"] * state + noise_level[0] * prediction \
-                    + noise_level[1] * noise
-        return state
+        noise_level = self._estimate_stoch_level(
+            alpha_sq_curr=curr_stats["alpha_sq"],
+            alpha_sq_next=next_stats["alpha_sq"]
+        )
+        estimated_noise = self.param.get_noise(
+            prediction=prediction,
+            in_data=in_data,
+            alpha=curr_stats["alpha"],
+            sigma=curr_stats["sigma"],
+            gamma=curr_stats["gamma"],
+            **conditioning
+        )
+        noise = torch.randn_like(in_data)
+        return (
+            next_stats["alpha"] * state
+            + noise_level[0] * estimated_noise
+            + noise_level[1] * noise
+        )
