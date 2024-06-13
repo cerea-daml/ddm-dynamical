@@ -69,15 +69,7 @@ class HeunSampler(BaseSampler):
         dt = sigma_tilde_next - sigma_tilde_curr
 
         # Estimate predictions
-        prediction = self.estimate_prediction(
-            in_data=in_data,
-            alpha=curr_stats["alpha"],
-            sigma=curr_stats["sigma"],
-            gamma=curr_stats["gamma"],
-            **conditioning
-        )
-        denoised = self.param(
-            prediction=prediction,
+        denoised = self.estimate_denoised(
             in_data=in_data,
             alpha=curr_stats["alpha"],
             sigma=curr_stats["sigma"],
@@ -95,15 +87,7 @@ class HeunSampler(BaseSampler):
 
         if self.heun and next_stats["step"] > 0:
             # Heun step
-            prediction = self.estimate_prediction(
-                in_data=out_preserved,
-                alpha=next_stats["alpha"],
-                sigma=next_stats["sigma"],
-                gamma=next_stats["gamma"],
-                **conditioning
-            )
-            denoised = self.param(
-                prediction=prediction,
+            denoised = self.estimate_denoised(
                 in_data=out_preserved,
                 alpha=next_stats["alpha"],
                 sigma=next_stats["sigma"],
