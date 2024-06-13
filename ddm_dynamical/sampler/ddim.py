@@ -101,7 +101,7 @@ class DDIMSampler(BaseSampler):
             alpha_sq_curr=curr_stats["alpha_sq"],
             alpha_sq_next=next_stats["alpha_sq"]
         )
-        estimated_noise = self.param.get_noise(
+        noise = self.param.get_noise(
             prediction=prediction,
             in_data=in_data,
             alpha=curr_stats["alpha"],
@@ -109,9 +109,9 @@ class DDIMSampler(BaseSampler):
             gamma=curr_stats["gamma"],
             **conditioning
         )
-        noise = torch.randn_like(in_data)
+        added_noise = torch.randn_like(in_data)
         return (
             next_stats["alpha"] * state
-            + noise_level[0] * estimated_noise
-            + noise_level[1] * noise
+            + noise_level[0] * noise
+            + noise_level[1] * added_noise
         )

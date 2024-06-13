@@ -10,6 +10,7 @@
 
 # System modules
 import logging
+from typing import Dict, Any, Callable
 
 # External modules
 import torch.nn
@@ -24,49 +25,47 @@ class DDPMSampler(BaseSampler):
     def forward(
             self,
             in_data: torch.Tensor,
-            step: torch.Tensor,
-            **conditioning: torch.Tensor
+            curr_stats: Dict[str, torch.Tensor],
+            next_stats: Dict[str, torch.Tensor],
+            **conditioning: Dict[str, torch.Tensor]
     ) -> torch.Tensor:
-        # Estimate coefficients from scheduler
-        prev_step = step-1/self.timesteps
-        gamma_t = self.scheduler(step)
-        gamma_s = self.scheduler(prev_step)
-        var_t = torch.sigmoid(-gamma_t)
-        alpha_s_sq = torch.sigmoid(gamma_s)
-
-        sigma_t = var_t.sqrt()
-        alpha_t_sq = 1-var_t
-        alpha_dash_t_sq = alpha_t_sq / alpha_s_sq
-        alpha_t = alpha_t_sq.sqrt()
-        alpha_s = alpha_s_sq.sqrt()
-        alpha_dash_t = alpha_dash_t_sq.sqrt()
-
-        # Estimate factors
-        latent_factor = alpha_dash_t*(1-alpha_s_sq)/(1-alpha_t_sq)
-        state_factor = alpha_s*(1-alpha_dash_t_sq)/(1-alpha_t_sq)
-        noise_factor = (
-                (1-alpha_dash_t_sq)*(1-alpha_s_sq)/(1-alpha_t_sq)
-        ).sqrt()
-
         # Estimate tensors
         prediction = self.estimate_prediction(
             in_data=in_data,
-            alpha=alpha_t,
-            sigma=sigma_t,
-            gamma=gamma_t,
+            alpha=curr_stats["alpha"],
+            sigma=curr_stats["sigma"],
+            gamma=curr_stats["gamma"],
             **conditioning
         )
-        state = self.param(
-            prediction=prediction,
-            in_data=in_data,
-            alpha=alpha_t,
-            sigma=sigma_t,
-            gamma=gamma_t,
-            **conditioning
-        )
+        if next_stats["step"] > 0:
+            # Gamma definition swapped to VDM paper!
+            # Alpha^2 = sigmoid(gamma), sigma^2 = sigmoid(-gamma)
+            factor = torch.expm1(curr_stats["gamma"] - next_stats["gamma"])
 
-        if prev_step > 0:
-            noise = torch.randn_like(in_data)
-            state = latent_factor * in_data + state_factor * state + \
-                    noise_factor * noise
+            noise = self.param.get_noise(
+                prediction=prediction,
+                in_data=in_data,
+                alpha=curr_stats["alpha"],
+                sigma=curr_stats["sigma"],
+                gamma=curr_stats["gamma"],
+                **conditioning
+            )
+            scale = (
+                next_stats["alpha"] + 1E-9
+            ) / (
+                curr_stats["alpha"] + 1E-9
+            )
+            mean = scale * (in_data + curr_stats["sigma"] * factor * noise)
+
+            scale_added_noise = next_stats["sigma"] * torch.sqrt(-factor)
+            state = mean + scale_added_noise * torch.randn_like(mean)
+        else:
+            state = self.param(
+                prediction=prediction,
+                in_data=in_data,
+                alpha=curr_stats["alpha"],
+                sigma=curr_stats["sigma"],
+                gamma=curr_stats["gamma"],
+                **conditioning
+            )
         return state
