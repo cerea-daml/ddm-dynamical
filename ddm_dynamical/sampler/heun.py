@@ -77,6 +77,10 @@ class HeunSampler(BaseSampler):
             **conditioning
         )
 
+        # Direct output denoised state
+        if next_stats["step"] == 0:
+            return denoised
+
         # Estimate grad in exploding
         in_exploded = in_data / curr_stats["alpha"]
 
@@ -85,7 +89,7 @@ class HeunSampler(BaseSampler):
         out_exploded = in_exploded + grad * dt
         out_preserved = out_exploded * next_stats["alpha"]
 
-        if self.heun and next_stats["step"] > 0:
+        if self.heun:
             # Heun step
             denoised = self.estimate_denoised(
                 in_data=out_preserved,
