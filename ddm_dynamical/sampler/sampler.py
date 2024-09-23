@@ -30,7 +30,7 @@ class BaseSampler(torch.nn.Module):
     def __init__(
             self,
             scheduler: "ddm_dynamical.scheduler.noise_scheduler.NoiseScheduler",
-            timesteps: int = 250,
+            timesteps: int = 50,
             denoising_network: torch.nn.Module = None,
             pre_func: Callable = None,
             post_func: Callable = None,
@@ -82,7 +82,7 @@ class BaseSampler(torch.nn.Module):
             "alpha": alpha, "sigma": sigma
         }
 
-    def estimate_denoised(
+    def estimate_prediction(
             self,
             in_data: torch.Tensor,
             alpha: torch.Tensor,
@@ -105,6 +105,23 @@ class BaseSampler(torch.nn.Module):
         )
         prediction = self.post_func(
             prediction=prediction,
+            in_data=in_data,
+            alpha=alpha,
+            sigma=sigma,
+            gamma=gamma,
+            **conditioning
+        )
+        return prediction
+
+    def estimate_denoised(
+            self,
+            in_data: torch.Tensor,
+            alpha: torch.Tensor,
+            sigma: torch.Tensor,
+            gamma: torch.Tensor,
+            **conditioning: Dict[str, torch.Tensor]
+    ) -> torch.Tensor:
+        prediction = self.estimate_prediction(
             in_data=in_data,
             alpha=alpha,
             sigma=sigma,
@@ -136,7 +153,7 @@ class BaseSampler(torch.nn.Module):
     def reconstruct(
             self,
             in_tensor: torch.Tensor,
-            n_steps: int = 250,
+            n_steps: int = 50,
             **conditioning: Dict[str, torch.Tensor]
     ) -> torch.Tensor:
         denoised_tensor = in_tensor
