@@ -26,7 +26,7 @@ class KDiffusionSampler(BaseSampler):
             self,
             k_func: Callable,
             scheduler: "ddm_dynamical.scheduler.noise_scheduler.NoiseScheduler",
-            timesteps: int = 250,
+            timesteps: int = 50,
             denoising_network: torch.nn.Module = None,
             pre_func: Callable = None,
             post_func: Callable = None,
@@ -89,7 +89,7 @@ class KDiffusionSampler(BaseSampler):
     def reconstruct(
             self,
             in_tensor: torch.Tensor,
-            n_steps: int = 250,
+            n_steps: int = 50,
             **conditioning: torch.Tensor
     ) -> torch.Tensor:
         time_steps = torch.linspace(

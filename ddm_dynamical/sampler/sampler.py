@@ -30,7 +30,7 @@ class BaseSampler(torch.nn.Module):
     def __init__(
             self,
             scheduler: "ddm_dynamical.scheduler.noise_scheduler.NoiseScheduler",
-            timesteps: int = 250,
+            timesteps: int = 50,
             denoising_network: torch.nn.Module = None,
             pre_func: Callable = None,
             post_func: Callable = None,
@@ -138,8 +138,6 @@ class BaseSampler(torch.nn.Module):
         )
         return denoised
 
-
-
     @torch.no_grad()
     def sample(
             self,
@@ -155,7 +153,7 @@ class BaseSampler(torch.nn.Module):
     def reconstruct(
             self,
             in_tensor: torch.Tensor,
-            n_steps: int = 250,
+            n_steps: int = 50,
             **conditioning: Dict[str, torch.Tensor]
     ) -> torch.Tensor:
         denoised_tensor = in_tensor
