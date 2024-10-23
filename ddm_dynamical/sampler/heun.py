@@ -34,7 +34,8 @@ class HeunSampler(BaseSampler):
             heun: bool = True,
             gamma_min: float = -15.,
             gamma_max: float = 15.,
-            pbar: bool = False
+            pbar: bool = False,
+            **kwargs
     ):
         """
         Heun sampler from Karras et al. (2022), Alg. 2.
@@ -49,7 +50,8 @@ class HeunSampler(BaseSampler):
             param=param,
             gamma_min=gamma_min,
             gamma_max=gamma_max,
-            pbar=pbar
+            pbar=pbar,
+            **kwargs
         )
         self.heun = heun
 

@@ -39,7 +39,7 @@ class BaseSampler(torch.nn.Module):
             gamma_min: float = -15.,
             gamma_max: float = 15.,
             pbar: bool = True,
-            sample_kwargs: Dict[str, Any] = None
+            **kwargs
     ):
         super().__init__()
         self.denoising_network = denoising_network
@@ -51,7 +51,7 @@ class BaseSampler(torch.nn.Module):
         self.gamma_min = gamma_min
         self.gamma_max = gamma_max
         self.scheduler = scheduler
-        self.sample_kwargs = sample_kwargs
+        self.kwargs = kwargs
         self.pbar = pbar
 
     @property
