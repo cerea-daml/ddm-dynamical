@@ -29,6 +29,9 @@ class NoiseScheduler(torch.nn.Module):
             learnable: bool = False
     ):
         super().__init__()
+        self._time_scale = None
+        self._time_shift = None
+        self.learnable = learnable
         self.register_parameter(
             "gamma_min",
             torch.nn.Parameter(
@@ -44,12 +47,16 @@ class NoiseScheduler(torch.nn.Module):
         self.eps = 1E-9
 
     def get_time_scale(self) -> torch.Tensor:
-        t0 = self.inverse_scheduler(self.gamma_max)
-        t1 = self.inverse_scheduler(self.gamma_min)
-        return t1-t0
+        if self.learnable is True or self._time_scale is None:
+            t0 = self.inverse_scheduler(self.gamma_max)
+            t1 = self.inverse_scheduler(self.gamma_min)
+            self._time_scale = t1 - t0
+        return self._time_scale
 
     def get_time_shift(self) -> torch.Tensor:
-        return self.inverse_scheduler(self.gamma_max)
+        if self.learnable is True or self._time_shift is None:
+            self._time_shift = self.inverse_scheduler(self.gamma_max)
+        return self._time_shift
 
     def truncate_time(self, timesteps: torch.Tensor) -> torch.Tensor:
         return self.get_time_shift() + self.get_time_scale() * timesteps
